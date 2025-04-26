@@ -1,19 +1,18 @@
 // LinkedIn API Configuration
 window.config = {
     clientId: '78sx18y82409uh', // Updated client ID
-    // Use the GitHub Pages URL format: https://[username].github.io/linkedin-post-manager/
-    redirectUri: window.location.href.includes('github.io')
-        ? window.location.origin + '/linkedin-post-manager/'  // GitHub Pages (simplified)
-        : window.location.origin + '/', // Local development (simplified)
+
+    // IMPORTANT: This must EXACTLY match what's in your LinkedIn Developer Portal
+    // Copy and paste the exact redirect URI from your LinkedIn App's settings
+    redirectUri: 'https://chengheri.github.io/linkedin-post-manager/',
+
     scope: 'r_liteprofile', // Simplified to just basic profile access
     apiBaseUrl: 'https://api.linkedin.com/v2',
     state: generateRandomString(16), // Random state for OAuth security
     authEndpoint: 'https://www.linkedin.com/oauth/v2/authorization',
     tokenEndpoint: 'https://www.linkedin.com/oauth/v2/accessToken',
     // Privacy policy URL - for LinkedIn app registration
-    privacyPolicyUrl: window.location.href.includes('github.io')
-        ? window.location.origin + '/linkedin-post-manager/privacy-policy.html' // GitHub Pages
-        : window.location.origin + '/privacy-policy.html', // Local development
+    privacyPolicyUrl: 'https://chengheri.github.io/linkedin-post-manager/privacy-policy.html',
     lastUpdated: Date.now(), // Cache busting timestamp
 };
 
