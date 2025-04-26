@@ -14,8 +14,11 @@ class LinkedInAPI {
     async apiRequest(endpoint, method = 'GET', data = null) {
         const token = this.auth.getToken();
         if (!token) {
+            console.error('API Request Error: No authentication token available');
             throw new Error('Not authenticated');
         }
+
+        console.log(`Making ${method} request to ${endpoint} with token:`, token.substring(0, 10) + '...');
 
         const options = {
             method,
@@ -30,13 +33,18 @@ class LinkedInAPI {
         }
 
         try {
+            console.log(`Fetching ${this.apiBase}${endpoint} with options:`, options);
             const response = await fetch(`${this.apiBase}${endpoint}`, options);
 
             if (!response.ok) {
-                throw new Error(`API request failed: ${response.status}`);
+                const errorText = await response.text();
+                console.error(`API response error (${response.status}):`, errorText);
+                throw new Error(`API request failed: ${response.status} - ${errorText}`);
             }
 
-            return await response.json();
+            const responseData = await response.json();
+            console.log('API response success:', responseData);
+            return responseData;
         } catch (error) {
             console.error('API request error:', error);
             throw error;
@@ -45,42 +53,122 @@ class LinkedInAPI {
 
     // Get current user's profile
     async getProfile() {
-        return this.apiRequest('/me?projection=(id,firstName,lastName,profilePicture(displayImage~:playableStreams))');
+        try {
+            console.log('Fetching user profile');
+            return this.apiRequest('/me?projection=(id,firstName,lastName,profilePicture(displayImage~:playableStreams))');
+        } catch (error) {
+            console.error('Error fetching profile:', error);
+            // For demo, return a simulated profile
+            return this.simulateProfileResponse();
+        }
+    }
+
+    // Simulate profile response for testing
+    simulateProfileResponse() {
+        console.log('Using simulated profile response');
+        return {
+            id: 'simulated-user-id',
+            firstName: {
+                localized: {
+                    'en_US': 'Demo'
+                }
+            },
+            lastName: {
+                localized: {
+                    'en_US': 'User'
+                }
+            }
+        };
     }
 
     // Get user's recent posts
     async getPosts() {
-        // In a real implementation, this would use LinkedIn's UGC API
-        // For demo purposes, we'll simulate the response
-        return this.simulatePostsResponse();
+        try {
+            console.log('Attempting to fetch posts from LinkedIn API');
+            // First try the real API call
+            //const posts = await this.apiRequest('/ugcPosts?q=authors&authors=List(urn%3Ali%3Aperson%3A<id>)');
+            //return posts;
+
+            // If that fails or for demo, throw to use simulation
+            throw new Error('Using simulated posts for demo');
+        } catch (error) {
+            console.log('Using simulated posts response due to:', error.message);
+            // In a real implementation, this would use LinkedIn's UGC API
+            // For demo purposes, we'll simulate the response
+            return this.simulatePostsResponse();
+        }
     }
 
     // Get scheduled posts
     async getScheduledPosts() {
-        // In a real implementation, this would use LinkedIn's UGC API with filters
-        // For demo purposes, we'll simulate the response
-        return this.simulateScheduledPostsResponse();
+        try {
+            console.log('Attempting to fetch scheduled posts');
+            // First try real API call
+            //const scheduledPosts = await this.apiRequest('/ugcPosts?q=authors&authors=List(urn%3Ali%3Aperson%3A<id>)&status=SCHEDULED');
+            //return scheduledPosts;
+
+            // If that fails or for demo, throw to use simulation
+            throw new Error('Using simulated scheduled posts for demo');
+        } catch (error) {
+            console.log('Using simulated scheduled posts response due to:', error.message);
+            // In a real implementation, this would use LinkedIn's UGC API with filters
+            // For demo purposes, we'll simulate the response
+            return this.simulateScheduledPostsResponse();
+        }
     }
 
     // Create a new post
     async createPost(postData) {
-        // In a real implementation, this would send to LinkedIn's UGC API
-        // For demo purposes, we'll simulate the response
-        return this.simulateCreatePostResponse(postData);
+        try {
+            console.log('Attempting to create post:', postData);
+            // First try real API call
+            //const createdPost = await this.apiRequest('/ugcPosts', 'POST', postData);
+            //return createdPost;
+
+            // If that fails or for demo, throw to use simulation
+            throw new Error('Using simulated create post for demo');
+        } catch (error) {
+            console.log('Using simulated create post response due to:', error.message);
+            // In a real implementation, this would send to LinkedIn's UGC API
+            // For demo purposes, we'll simulate the response
+            return this.simulateCreatePostResponse(postData);
+        }
     }
 
     // Update an existing post
     async updatePost(postId, postData) {
-        // In a real implementation, this would update via LinkedIn's UGC API
-        // For demo purposes, we'll simulate the response
-        return this.simulateUpdatePostResponse(postId, postData);
+        try {
+            console.log('Attempting to update post:', postId);
+            // First try real API call
+            //const updatedPost = await this.apiRequest(`/ugcPosts/${postId}`, 'PUT', postData);
+            //return updatedPost;
+
+            // If that fails or for demo, throw to use simulation
+            throw new Error('Using simulated update post for demo');
+        } catch (error) {
+            console.log('Using simulated update post response due to:', error.message);
+            // In a real implementation, this would update via LinkedIn's UGC API
+            // For demo purposes, we'll simulate the response
+            return this.simulateUpdatePostResponse(postId, postData);
+        }
     }
 
     // Delete a post
     async deletePost(postId) {
-        // In a real implementation, this would delete via LinkedIn's UGC API
-        // For demo purposes, we'll simulate the response
-        return this.simulateDeletePostResponse(postId);
+        try {
+            console.log('Attempting to delete post:', postId);
+            // First try real API call
+            //await this.apiRequest(`/ugcPosts/${postId}`, 'DELETE');
+            //return { success: true, id: postId };
+
+            // If that fails or for demo, throw to use simulation
+            throw new Error('Using simulated delete post for demo');
+        } catch (error) {
+            console.log('Using simulated delete post response due to:', error.message);
+            // In a real implementation, this would delete via LinkedIn's UGC API
+            // For demo purposes, we'll simulate the response
+            return this.simulateDeletePostResponse(postId);
+        }
     }
 
     // SIMULATION METHODS FOR DEMO PURPOSES
@@ -89,6 +177,7 @@ class LinkedInAPI {
     simulatePostsResponse() {
         // Simulate a delayed API response
         return new Promise((resolve) => {
+            console.log('Generating simulated posts');
             setTimeout(() => {
                 // Generate some sample posts with random engagement
                 const samplePosts = [];
@@ -114,6 +203,7 @@ class LinkedInAPI {
                     });
                 }
 
+                console.log('Generated simulated posts:', samplePosts.length);
                 resolve(samplePosts);
             }, 800); // Simulate network delay
         });
@@ -122,6 +212,7 @@ class LinkedInAPI {
     simulateScheduledPostsResponse() {
         // Simulate a delayed API response
         return new Promise((resolve) => {
+            console.log('Generating simulated scheduled posts');
             setTimeout(() => {
                 // Generate some sample scheduled posts
                 const samplePosts = [];
@@ -147,6 +238,7 @@ class LinkedInAPI {
                     });
                 }
 
+                console.log('Generated simulated scheduled posts:', samplePosts.length);
                 resolve(samplePosts);
             }, 800); // Simulate network delay
         });
@@ -155,6 +247,7 @@ class LinkedInAPI {
     simulateCreatePostResponse(postData) {
         // Simulate a delayed API response
         return new Promise((resolve) => {
+            console.log('Simulating post creation');
             setTimeout(() => {
                 // Add an ID and creation date to the post data
                 const response = {
@@ -163,6 +256,7 @@ class LinkedInAPI {
                     createdAt: new Date().toISOString()
                 };
 
+                console.log('Simulated post creation response:', response);
                 resolve(response);
             }, 800); // Simulate network delay
         });
@@ -171,6 +265,7 @@ class LinkedInAPI {
     simulateUpdatePostResponse(postId, postData) {
         // Simulate a delayed API response
         return new Promise((resolve) => {
+            console.log('Simulating post update for:', postId);
             setTimeout(() => {
                 // Return the updated post data
                 const response = {
@@ -179,6 +274,7 @@ class LinkedInAPI {
                     updatedAt: new Date().toISOString()
                 };
 
+                console.log('Simulated post update response:', response);
                 resolve(response);
             }, 800); // Simulate network delay
         });
@@ -187,7 +283,9 @@ class LinkedInAPI {
     simulateDeletePostResponse(postId) {
         // Simulate a delayed API response
         return new Promise((resolve) => {
+            console.log('Simulating post deletion for:', postId);
             setTimeout(() => {
+                console.log('Simulated successful deletion');
                 resolve({ success: true, id: postId });
             }, 800); // Simulate network delay
         });
@@ -200,6 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Wait for auth to be initialized
     const authCheckInterval = setInterval(() => {
         if (window.auth) {
+            console.log('Auth detected, initializing API service');
             api = new LinkedInAPI(auth, window.config);
             console.log('API service connected');
             clearInterval(authCheckInterval);

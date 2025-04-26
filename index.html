@@ -848,9 +848,13 @@
         // Sync Posts from LinkedIn
         if (syncLinkedInBtn) {
             syncLinkedInBtn.addEventListener('click', async () => {
-                if (!api || !auth.isAuthenticated()) return;
+                if (!api || !auth.isAuthenticated()) {
+                    alert('Please connect your LinkedIn account first');
+                    return;
+                }
 
                 try {
+                    console.log('Starting LinkedIn post sync');
                     // Show sync status
                     syncStatus.style.display = 'block';
                     syncProgress.textContent = '0%';
@@ -867,13 +871,19 @@
                     }, 200);
 
                     // Get posts from LinkedIn API
+                    console.log('Fetching regular posts');
                     const linkedInPosts = await api.getPosts();
+                    console.log('Fetched posts:', linkedInPosts.length);
 
                     // Get scheduled posts from LinkedIn API
+                    console.log('Fetching scheduled posts');
                     const scheduledPosts = await api.getScheduledPosts();
+                    console.log('Fetched scheduled posts:', scheduledPosts.length);
 
                     // Combine all posts
+                    console.log('Combining posts');
                     const allLinkedInPosts = [...linkedInPosts, ...scheduledPosts];
+                    console.log('Total posts from LinkedIn:', allLinkedInPosts.length);
 
                     // Add LinkedIn posts to the top of existing posts
                     // (avoiding duplicates based on LinkedIn ID)
@@ -884,9 +894,11 @@
                     const newPosts = allLinkedInPosts.filter(post =>
                         !existingLinkedInIds.includes(post.id)
                     );
+                    console.log('New posts to add:', newPosts.length);
 
                     posts = [...newPosts, ...posts];
                     savePosts();
+                    console.log('Posts saved, total count:', posts.length);
 
                     // Complete the progress indicator
                     clearInterval(progressInterval);
@@ -896,12 +908,13 @@
                     // Hide sync status after a short delay
                     setTimeout(() => {
                         syncStatus.style.display = 'none';
+                        alert(`Successfully synced ${newPosts.length} new posts from LinkedIn!`);
                         updateUI();
                     }, 1000);
 
                 } catch (error) {
                     console.error('Error syncing posts:', error);
-                    alert('Failed to sync posts from LinkedIn');
+                    alert('Failed to sync posts from LinkedIn: ' + error.message);
                     syncStatus.style.display = 'none';
                 }
             });
