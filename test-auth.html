@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Auth Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        button {
+            background-color: #0077b5;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>LinkedIn Authentication Test</h1>
+
+    <p>This is a minimal test page to debug LinkedIn OAuth issues.</p>
+
+    <div class="container">
+        <h2>Your Configuration</h2>
+        <p>Client ID: <span id="client-id">78sx18y82409uh</span></p>
+        <p>Redirect URI: <span id="redirect-uri">https://chengheri.github.io/linkedin-post-manager/</span></p>
+        <p>State: <span id="state">test12345</span></p>
+        <p>Scope: <span id="scope">r_liteprofile</span></p>
+    </div>
+
+    <div class="container">
+        <h2>Direct Authorization Link</h2>
+        <p>Click the button below to try authenticating with LinkedIn:</p>
+        <button id="test-auth">Test LinkedIn Auth</button>
+        <p>Or try this direct link:</p>
+        <a id="direct-link" href="#" target="_blank">Open LinkedIn Auth in New Tab</a>
+    </div>
+
+    <div class="container">
+        <h2>Encoded Auth URL</h2>
+        <pre id="auth-url"></pre>
+    </div>
+
+    <script>
+        // Configuration
+        const clientId = document.getElementById('client-id').textContent;
+        const redirectUri = document.getElementById('redirect-uri').textContent;
+        const state = document.getElementById('state').textContent;
+        const scope = document.getElementById('scope').textContent;
+
+        // Build the auth URL
+        const authEndpoint = 'https://www.linkedin.com/oauth/v2/authorization';
+        const authUrl = new URL(authEndpoint);
+        authUrl.searchParams.append('response_type', 'code');
+        authUrl.searchParams.append('client_id', clientId);
+        authUrl.searchParams.append('redirect_uri', redirectUri);
+        authUrl.searchParams.append('state', state);
+        authUrl.searchParams.append('scope', scope);
+
+        // Display the URL
+        document.getElementById('auth-url').textContent = authUrl.toString();
+
+        // Set the href for the direct link
+        document.getElementById('direct-link').href = authUrl.toString();
+
+        // Add event listener to the button
+        document.getElementById('test-auth').addEventListener('click', () => {
+            window.location.href = authUrl.toString();
+        });
+
+        // Check for auth response
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const error = urlParams.get('error');
+        const errorDescription = urlParams.get('error_description');
+
+        if (code) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'container';
+            successDiv.innerHTML = `
+                <h2>Authentication Successful!</h2>
+                <p>Code: ${code}</p>
+                <p>State: ${urlParams.get('state')}</p>
+            `;
+            document.body.appendChild(successDiv);
+        } else if (error) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'container';
+            errorDiv.style.backgroundColor = '#ffeded';
+            errorDiv.style.borderColor = '#ff6b6b';
+            errorDiv.innerHTML = `
+                <h2>Authentication Error</h2>
+                <p>Error: ${error}</p>
+                <p>Description: ${errorDescription || 'No description provided'}</p>
+            `;
+            document.body.appendChild(errorDiv);
+        }
+    </script>
+</body>
+</html>
