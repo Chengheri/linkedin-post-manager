@@ -1,6 +1,6 @@
 // LinkedIn API Configuration
 const config = {
-    clientId: 'YOUR_LINKEDIN_CLIENT_ID', // Replace with your LinkedIn app client ID
+    clientId: '78sx18y82409uh', // Replace with your LinkedIn app client ID
     // Use the GitHub Pages URL format: https://[username].github.io/linkedin-post-manager/
     redirectUri: window.location.href.includes('github.io')
         ? window.location.origin + '/linkedin-post-manager/index.html'  // GitHub Pages
