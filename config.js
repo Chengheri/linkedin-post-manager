@@ -3,9 +3,9 @@ window.config = {
     clientId: '78sx18y82409uh', // Updated client ID
     // Use the GitHub Pages URL format: https://[username].github.io/linkedin-post-manager/
     redirectUri: window.location.href.includes('github.io')
-        ? window.location.origin + '/linkedin-post-manager/index.html'  // GitHub Pages
-        : window.location.origin + '/index.html', // Local development
-    scope: 'r_emailaddress r_liteprofile w_member_social', // Required permissions
+        ? window.location.origin + '/linkedin-post-manager/'  // GitHub Pages (simplified)
+        : window.location.origin + '/', // Local development (simplified)
+    scope: 'r_liteprofile', // Simplified to just basic profile access
     apiBaseUrl: 'https://api.linkedin.com/v2',
     state: generateRandomString(16), // Random state for OAuth security
     authEndpoint: 'https://www.linkedin.com/oauth/v2/authorization',
