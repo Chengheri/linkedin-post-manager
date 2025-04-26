@@ -3,15 +3,42 @@
 class LinkedInAuth {
     constructor(config) {
         this.config = config;
-        this.accessToken = localStorage.getItem('linkedin_access_token');
+
+        // Check for manual access token
+        this.manualAccessToken = localStorage.getItem('linkedin_manual_token');
+        this.accessToken = this.manualAccessToken || localStorage.getItem('linkedin_access_token');
         this.tokenExpiry = localStorage.getItem('linkedin_token_expiry');
 
         // Debug logging
         console.log('LinkedIn Auth initialized with client ID:', this.config.clientId);
         console.log('Redirect URI:', this.config.redirectUri);
+        console.log('Using manual token:', !!this.manualAccessToken);
 
         // Check if we returned from LinkedIn OAuth redirect
         this.handleAuthCallback();
+    }
+
+    // Set manual access token
+    setManualAccessToken(token, expiryInHours = 24) {
+        if (!token) return false;
+
+        const expiresAt = Date.now() + (expiryInHours * 60 * 60 * 1000); // Convert hours to milliseconds
+
+        // Store token information
+        localStorage.setItem('linkedin_manual_token', token);
+        localStorage.setItem('linkedin_token_expiry', expiresAt);
+
+        // Update instance properties
+        this.manualAccessToken = token;
+        this.accessToken = token;
+        this.tokenExpiry = expiresAt;
+
+        // Refresh UI after setting token
+        if (typeof updateLinkedInUI === 'function') {
+            updateLinkedInUI();
+        }
+
+        return true;
     }
 
     // Check if user is authenticated
@@ -30,6 +57,22 @@ class LinkedInAuth {
 
     // Initialize login process
     login() {
+        // Check if we should show token input instead
+        const useManualToken = confirm("Do you want to use a manual access token instead of OAuth login?");
+
+        if (useManualToken) {
+            const token = prompt("Enter your LinkedIn access token:");
+            if (token) {
+                const success = this.setManualAccessToken(token);
+                if (success) {
+                    alert("Access token saved successfully!");
+                    return;
+                }
+            }
+            return;
+        }
+
+        // Continue with regular OAuth flow
         try {
             // Debug logging
             console.log('Starting login with client ID:', this.config.clientId);
@@ -135,10 +178,12 @@ class LinkedInAuth {
         // Remove tokens from storage
         localStorage.removeItem('linkedin_access_token');
         localStorage.removeItem('linkedin_token_expiry');
+        localStorage.removeItem('linkedin_manual_token');
 
         // Clear instance properties
         this.accessToken = null;
         this.tokenExpiry = null;
+        this.manualAccessToken = null;
 
         // Refresh UI after logout
         if (typeof updateLinkedInUI === 'function') {

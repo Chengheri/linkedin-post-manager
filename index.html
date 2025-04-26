@@ -682,6 +682,15 @@
                                 <li>Manage all your content in one place</li>
                             </ul>
                             <button id="connect-linkedin" class="btn">Connect LinkedIn Account</button>
+
+                            <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
+                                <h3>Use Access Token</h3>
+                                <p>If you have a LinkedIn access token, you can enter it directly:</p>
+                                <div style="display: flex; margin-top: 10px;">
+                                    <input type="text" id="manual-token" placeholder="Paste your access token here" style="flex: 1;">
+                                    <button id="save-token" class="btn" style="margin-left: 10px;">Save Token</button>
+                                </div>
+                            </div>
                         </div>
 
                         <div id="account-connected" style="display: none;">
@@ -741,6 +750,8 @@
         const syncStatus = document.getElementById('sync-status');
         const syncProgress = document.getElementById('sync-progress');
         const syncProgressBar = document.getElementById('sync-progress-bar');
+        const manualTokenInput = document.getElementById('manual-token');
+        const saveTokenBtn = document.getElementById('save-token');
 
         // Navigation
         navItems.forEach(item => {
@@ -810,6 +821,25 @@
                 if (auth) {
                     if (confirm('Are you sure you want to disconnect your LinkedIn account?')) {
                         auth.logout();
+                    }
+                }
+            });
+        }
+
+        // Save manual access token
+        if (saveTokenBtn && manualTokenInput) {
+            saveTokenBtn.addEventListener('click', () => {
+                const token = manualTokenInput.value.trim();
+                if (!token) {
+                    alert('Please enter a valid access token');
+                    return;
+                }
+
+                if (auth) {
+                    const success = auth.setManualAccessToken(token);
+                    if (success) {
+                        alert('Access token saved successfully!');
+                        manualTokenInput.value = '';
                     }
                 }
             });
