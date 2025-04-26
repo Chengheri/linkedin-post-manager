@@ -5,6 +5,9 @@ class LinkedInAPI {
         this.auth = auth;
         this.config = config;
         this.apiBase = config.apiBaseUrl;
+
+        // Debug log
+        console.log('API service initialized with config', this.config);
     }
 
     // Helper method for API requests
@@ -197,7 +200,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Wait for auth to be initialized
     const authCheckInterval = setInterval(() => {
         if (window.auth) {
-            api = new LinkedInAPI(auth, config);
+            api = new LinkedInAPI(auth, window.config);
+            console.log('API service connected');
             clearInterval(authCheckInterval);
         }
     }, 100);

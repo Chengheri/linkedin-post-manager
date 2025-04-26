@@ -1,5 +1,5 @@
 // LinkedIn API Configuration
-const config = {
+window.config = {
     clientId: '78sx18y82409uh', // Updated client ID
     // Use the GitHub Pages URL format: https://[username].github.io/linkedin-post-manager/
     redirectUri: window.location.href.includes('github.io')
@@ -17,6 +17,11 @@ const config = {
     lastUpdated: Date.now(), // Cache busting timestamp
 };
 
+// Debug output
+console.log('LinkedIn config loaded with client ID:', window.config.clientId);
+console.log('Current URL:', window.location.href);
+console.log('Using redirect URI:', window.config.redirectUri);
+
 // Generate a random string for the state parameter
 function generateRandomString(length) {
     const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -28,4 +33,4 @@ function generateRandomString(length) {
 }
 
 // Store state in session storage for validation
-sessionStorage.setItem('linkedin_auth_state', config.state);
+sessionStorage.setItem('linkedin_auth_state', window.config.state);

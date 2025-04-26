@@ -6,6 +6,10 @@ class LinkedInAuth {
         this.accessToken = localStorage.getItem('linkedin_access_token');
         this.tokenExpiry = localStorage.getItem('linkedin_token_expiry');
 
+        // Debug logging
+        console.log('LinkedIn Auth initialized with client ID:', this.config.clientId);
+        console.log('Redirect URI:', this.config.redirectUri);
+
         // Check if we returned from LinkedIn OAuth redirect
         this.handleAuthCallback();
     }
@@ -26,18 +30,29 @@ class LinkedInAuth {
 
     // Initialize login process
     login() {
-        // Build the LinkedIn authorization URL
-        const authUrl = new URL(this.config.authEndpoint);
+        try {
+            // Debug logging
+            console.log('Starting login with client ID:', this.config.clientId);
 
-        // Add query parameters
-        authUrl.searchParams.append('response_type', 'code');
-        authUrl.searchParams.append('client_id', this.config.clientId);
-        authUrl.searchParams.append('redirect_uri', this.config.redirectUri);
-        authUrl.searchParams.append('state', this.config.state);
-        authUrl.searchParams.append('scope', this.config.scope);
+            // Build the LinkedIn authorization URL
+            const authUrl = new URL(this.config.authEndpoint);
 
-        // Redirect to LinkedIn auth page
-        window.location.href = authUrl.toString();
+            // Add query parameters
+            authUrl.searchParams.append('response_type', 'code');
+            authUrl.searchParams.append('client_id', this.config.clientId);
+            authUrl.searchParams.append('redirect_uri', this.config.redirectUri);
+            authUrl.searchParams.append('state', this.config.state);
+            authUrl.searchParams.append('scope', this.config.scope);
+
+            // Debug: log the full authorization URL
+            console.log('Auth URL:', authUrl.toString());
+
+            // Redirect to LinkedIn auth page
+            window.location.href = authUrl.toString();
+        } catch (error) {
+            console.error('Error during login process:', error);
+            alert('Error starting login process. See console for details.');
+        }
     }
 
     // Handle the redirect from LinkedIn with auth code
@@ -46,7 +61,13 @@ class LinkedInAuth {
         const code = urlParams.get('code');
         const state = urlParams.get('state');
         const error = urlParams.get('error');
+        const errorDescription = urlParams.get('error_description');
         const storedState = sessionStorage.getItem('linkedin_auth_state');
+
+        // Debug logging for callback
+        if (error) {
+            console.error('LinkedIn Auth Error:', error, errorDescription);
+        }
 
         // Clear the URL parameters after extracting needed data
         if (code || error) {
@@ -131,10 +152,20 @@ class LinkedInAuth {
     }
 }
 
-// Initialize the auth object after loading config
+// Initialize the auth object after DOM is loaded
 let auth;
 document.addEventListener('DOMContentLoaded', () => {
-    auth = new LinkedInAuth(config);
+    // Debug check to ensure config is loaded
+    if (!window.config) {
+        console.error('LinkedIn config not found! Make sure config.js is loaded before auth.js');
+        alert('LinkedIn configuration error. Check console for details.');
+        return;
+    }
+
+    // Debug log config
+    console.log('Using LinkedIn client ID:', window.config.clientId);
+
+    auth = new LinkedInAuth(window.config);
 
     // Update UI based on auth state
     if (typeof updateLinkedInUI === 'function') {
