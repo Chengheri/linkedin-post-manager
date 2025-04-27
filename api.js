@@ -176,15 +176,47 @@ class LinkedInAPI {
     // Format LinkedIn posts to match our app's data structure
     formatLinkedInPosts(apiResponse) {
         try {
+            console.log('Raw LinkedIn API response:', JSON.stringify(apiResponse, null, 2));
+
             if (!apiResponse || !apiResponse.elements || !Array.isArray(apiResponse.elements)) {
                 console.error('Invalid LinkedIn API response format');
                 return [];
             }
 
-            return apiResponse.elements.map(post => {
+            const formattedPosts = apiResponse.elements.map(post => {
+                console.log('Processing LinkedIn post:', post);
+
                 // Extract post information from LinkedIn API response
                 const createdTime = post.created ? post.created.time : Date.now();
-                const content = post.text ? post.text.text : 'No content available';
+
+                // Extract content - handle different response formats
+                let content = 'No content available';
+                let title = 'LinkedIn Post';
+
+                // Check for different content locations in the API response
+                if (post.text && typeof post.text.text === 'string') {
+                    content = post.text.text;
+                } else if (post.text && typeof post.text === 'string') {
+                    content = post.text;
+                } else if (post.commentary && typeof post.commentary.text === 'string') {
+                    content = post.commentary.text;
+                } else if (post.message && typeof post.message.text === 'string') {
+                    content = post.message.text;
+                } else if (typeof post.content === 'string') {
+                    content = post.content;
+                }
+
+                // Create a title from content or use a fallback
+                if (content && content !== 'No content available') {
+                    title = content.substring(0, 50) + (content.length > 50 ? '...' : '');
+                } else if (post.title) {
+                    title = post.title;
+                } else if (post.subject) {
+                    title = post.subject;
+                }
+
+                console.log('Extracted title:', title);
+                console.log('Extracted content:', content.substring(0, 100) + (content.length > 100 ? '...' : ''));
 
                 // Extract engagement metrics if available
                 const likes = post.totalSocialActivityCounts ? (post.totalSocialActivityCounts.likes || 0) : 0;
@@ -193,7 +225,7 @@ class LinkedInAPI {
 
                 return {
                     id: `linkedin_${post.id || Date.now()}`,
-                    title: content.substring(0, 50) + (content.length > 50 ? '...' : ''),
+                    title: title,
                     content: content,
                     status: 'published',
                     createdAt: new Date(createdTime).toISOString(),
@@ -205,6 +237,9 @@ class LinkedInAPI {
                     }
                 };
             });
+
+            console.log('Formatted posts:', formattedPosts);
+            return formattedPosts;
         } catch (error) {
             console.error('Error formatting LinkedIn posts:', error);
             return [];

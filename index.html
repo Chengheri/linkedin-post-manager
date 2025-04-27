@@ -1128,8 +1128,8 @@
             if (!post) return;
 
             document.getElementById('edit-post-id').value = post.id;
-            document.getElementById('edit-post-title').value = post.title;
-            document.getElementById('edit-post-content').value = post.content;
+            document.getElementById('edit-post-title').value = post.title || 'Untitled Post';
+            document.getElementById('edit-post-content').value = post.content || '';
             document.getElementById('edit-post-status').value = post.status;
 
             if (post.status === 'scheduled') {
@@ -1139,9 +1139,9 @@
                 editScheduledDateGroup.style.display = 'none';
             }
 
-            document.getElementById('edit-likes').value = post.engagement.likes;
-            document.getElementById('edit-comments').value = post.engagement.comments;
-            document.getElementById('edit-shares').value = post.engagement.shares;
+            document.getElementById('edit-likes').value = post.engagement?.likes || 0;
+            document.getElementById('edit-comments').value = post.engagement?.comments || 0;
+            document.getElementById('edit-shares').value = post.engagement?.shares || 0;
 
             // Switch to edit section
             sections.forEach(section => section.classList.remove('active'));
@@ -1210,10 +1210,13 @@
                     .slice(0, 5);
 
                 recentPosts.forEach(post => {
+                    // Make sure post has a title
+                    const postTitle = post.title || 'Untitled Post';
+
                     const row = document.createElement('tr');
 
                     row.innerHTML = `
-                        <td>${post.title}</td>
+                        <td>${postTitle}</td>
                         <td>${formatDate(post.status === 'scheduled' ? post.scheduledDate : post.createdAt)}</td>
                         <td>${calculateEngagement(post)}</td>
                         <td><span class="status-badge status-${post.status}">${post.status}</span></td>
@@ -1236,10 +1239,13 @@
                 noPosts.style.display = 'none';
 
                 posts.forEach(post => {
+                    // Make sure post has a title
+                    const postTitle = post.title || 'Untitled Post';
+
                     const row = document.createElement('tr');
 
                     row.innerHTML = `
-                        <td>${post.title}</td>
+                        <td>${postTitle}</td>
                         <td>${formatDate(post.status === 'scheduled' ? post.scheduledDate : post.createdAt)}</td>
                         <td>${calculateEngagement(post)}</td>
                         <td><span class="status-badge status-${post.status}">${post.status}</span></td>
@@ -1284,10 +1290,13 @@
                 scheduledPostsList
                     .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))
                     .forEach(post => {
+                        // Make sure post has a title
+                        const postTitle = post.title || 'Untitled Post';
+
                         const row = document.createElement('tr');
 
                         row.innerHTML = `
-                            <td>${post.title}</td>
+                            <td>${postTitle}</td>
                             <td>${formatDate(post.scheduledDate)}</td>
                             <td class="post-actions">
                                 <button class="btn btn-sm btn-secondary edit-post" data-id="${post.id}">Edit</button>
