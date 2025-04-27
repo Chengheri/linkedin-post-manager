@@ -117,7 +117,7 @@ class LinkedInAPI {
     // Get user's recent posts
     async getPosts() {
         try {
-            console.log('Attempting to fetch data using Data Portability API');
+            console.log('Attempting to fetch data from LinkedIn');
             const token = this.auth.getToken();
 
             if (!token) {
@@ -127,53 +127,54 @@ class LinkedInAPI {
 
             console.log('Using token:', token.substring(0, 10) + '...');
 
-            // Try the endpoints through our API request method which handles proxy
+            // Try LinkedIn's V1 API which might work with limited permissions
             try {
-                // Try using Data Export API endpoint (v2 format)
-                console.log('Trying Data Export API endpoint');
-                const exportData = await this.apiRequest('/v2/dataExport', 'POST', {
-                    deviceFormFactor: "DESKTOP",
-                    locale: {
-                        country: "US",
-                        language: "en"
-                    }
-                });
-                console.log('Data export response received');
-                return this.processDataPortabilityResponse(exportData, 'dataExport');
-            } catch (exportError) {
-                console.error('Error with data export endpoint:', exportError.message);
+                // Try to access basic profile endpoint
+                console.log('Trying LinkedIn v1 basic profile endpoint');
+                const profileData = await this.apiRequest('/v1/people/~', 'GET');
+                console.log('Basic profile data received:', profileData);
 
+                // If we get profile data, try to get connections
                 try {
-                    // Try the dma/v2 version instead
-                    console.log('Trying dma/v2/memberAuthorizations endpoint with POST');
-                    const authData = await this.apiRequest('/dma/v2/memberAuthorizations', 'POST', {
-                        action: "findAll"
-                    });
-                    console.log('Member authorizations data received');
-                    return this.processDataPortabilityResponse(authData, 'authorizations');
-                } catch (authError) {
-                    console.error('Error with dma/v2/memberAuthorizations endpoint:', authError.message);
+                    console.log('Successfully got profile, trying connections');
+                    const connectionsData = await this.apiRequest('/v1/people/~/connections', 'GET');
+                    console.log('Connections data received');
 
+                    // Combine profile and connections data
+                    const combinedData = {
+                        profile: profileData,
+                        connections: connectionsData
+                    };
+
+                    return this.processDataPortabilityResponse(combinedData, 'v1api');
+                } catch (connectionsError) {
+                    console.error('Error getting connections:', connectionsError.message);
+                    // Just return profile data
+                    return this.processDataPortabilityResponse({ profile: profileData }, 'v1api');
+                }
+            } catch (v1Error) {
+                console.error('Error with v1 API:', v1Error.message);
+
+                // Try older people API format
+                try {
+                    console.log('Trying /people/me endpoint');
+                    const peopleData = await this.apiRequest('/people/me', 'GET');
+                    console.log('People data received');
+                    return this.processDataPortabilityResponse(peopleData, 'people');
+                } catch (peopleError) {
+                    console.error('Error with people endpoint:', peopleError.message);
+
+                    // As a last attempt, try the most basic profile endpoint
                     try {
-                        // Try another approach - using a direct request to archived content
-                        console.log('Trying /adPersonalization/settings endpoint');
-                        const settingsData = await this.apiRequest('/adPersonalization/settings');
-                        console.log('Ad personalization settings received');
-                        return this.processDataPortabilityResponse(settingsData, 'settings');
-                    } catch (settingsError) {
-                        console.error('Error with settings endpoint:', settingsError.message);
-
-                        try {
-                            // Last attempt - try /clientAudiences endpoint which is often available
-                            console.log('Trying /clientAudiences endpoint');
-                            const audiencesData = await this.apiRequest('/clientAudiences');
-                            console.log('Client audiences data received');
-                            return this.processDataPortabilityResponse(audiencesData, 'audiences');
-                        } catch (audiencesError) {
-                            console.error('Error with audiences endpoint:', audiencesError.message);
-                            console.warn('All endpoints failed, using simulated data');
-                            return this.simulatePostsResponse();
-                        }
+                        console.log('Trying /me endpoint');
+                        const basicProfileData = await this.apiRequest('/me', 'GET');
+                        console.log('Basic me data received');
+                        return this.processDataPortabilityResponse(basicProfileData, 'basicProfile');
+                    } catch (basicError) {
+                        console.error('Error with basic profile endpoint:', basicError.message);
+                        console.warn('All LinkedIn endpoints failed, using simulated data. Your access token might not have sufficient permissions.');
+                        console.warn('Consider requesting r_liteprofile and w_member_social scopes in the LinkedIn Developer Portal');
+                        return this.simulatePostsResponse();
                     }
                 }
             }
@@ -184,7 +185,7 @@ class LinkedInAPI {
         }
     }
 
-    // Process data from the Data Portability API
+    // Process data from various API responses
     processDataPortabilityResponse(data, responseType) {
         try {
             console.log(`Processing ${responseType} data from API:`, JSON.stringify(data, null, 2));
@@ -192,7 +193,77 @@ class LinkedInAPI {
             // Each response type has a different structure
             let formattedPosts = [];
 
-            if (responseType === 'snapshot') {
+            if (responseType === 'v1api') {
+                // Format profile data as a post
+                if (data.profile) {
+                    const profilePost = {
+                        id: `linkedin_profile_${Date.now()}`,
+                        title: 'Your LinkedIn Profile',
+                        content: `First Name: ${data.profile.firstName || 'Not available'}\n` +
+                                `Last Name: ${data.profile.lastName || 'Not available'}\n` +
+                                `Industry: ${data.profile.industry || 'Not available'}\n` +
+                                `Headline: ${data.profile.headline || 'Not available'}\n`,
+                        status: 'published',
+                        createdAt: new Date().toISOString(),
+                        scheduledDate: null,
+                        engagement: { likes: 0, comments: 0, shares: 0 }
+                    };
+                    formattedPosts.push(profilePost);
+                }
+
+                // Format connections as posts
+                if (data.connections && data.connections._total > 0 && data.connections.values) {
+                    const connectionsPost = {
+                        id: `linkedin_connections_${Date.now()}`,
+                        title: `Your LinkedIn Connections (${data.connections._total})`,
+                        content: 'Your connections:\n\n' +
+                            data.connections.values.map(c =>
+                                `- ${c.firstName || ''} ${c.lastName || ''} (${c.headline || 'No headline'})`
+                            ).join('\n'),
+                        status: 'published',
+                        createdAt: new Date().toISOString(),
+                        scheduledDate: null,
+                        engagement: { likes: 0, comments: 0, shares: 0 }
+                    };
+                    formattedPosts.push(connectionsPost);
+                }
+            } else if (responseType === 'people' || responseType === 'basicProfile') {
+                // Format basic profile data
+                const profilePost = {
+                    id: `linkedin_profile_${Date.now()}`,
+                    title: 'Your LinkedIn Profile',
+                    content: '',
+                    status: 'published',
+                    createdAt: new Date().toISOString(),
+                    scheduledDate: null,
+                    engagement: { likes: 0, comments: 0, shares: 0 }
+                };
+
+                // Extract available fields
+                if (data.firstName || data.first_name) {
+                    profilePost.content += `First Name: ${data.firstName || data.first_name || 'Not available'}\n`;
+                }
+                if (data.lastName || data.last_name) {
+                    profilePost.content += `Last Name: ${data.lastName || data.last_name || 'Not available'}\n`;
+                }
+                if (data.headline) {
+                    profilePost.content += `Headline: ${data.headline}\n`;
+                }
+                if (data.industry) {
+                    profilePost.content += `Industry: ${data.industry}\n`;
+                }
+                if (data.email || data.emailAddress) {
+                    profilePost.content += `Email: ${data.email || data.emailAddress}\n`;
+                }
+
+                // If no fields were added, add a generic message
+                if (profilePost.content === '') {
+                    profilePost.content = 'Basic profile data available.\n\nRaw data:\n' +
+                        JSON.stringify(data, null, 2);
+                }
+
+                formattedPosts.push(profilePost);
+            } else if (responseType === 'snapshot') {
                 // Try to find posts in the snapshot data
                 if (data.postsCreated && Array.isArray(data.postsCreated)) {
                     formattedPosts = data.postsCreated.map(post => this.formatDataPortabilityPost(post, 'snapshot'));
