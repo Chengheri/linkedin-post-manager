@@ -224,19 +224,26 @@ class LinkedInAuth {
 }
 
 // Initialize the auth object after DOM is loaded
-let auth;
 document.addEventListener('DOMContentLoaded', () => {
-    // Debug check to ensure config is loaded
-    if (!window.config) {
-        console.error('LinkedIn config not found! Make sure config.js is loaded before auth.js');
-        alert('LinkedIn configuration error. Check console for details.');
-        return;
+    console.log('DOM loaded, initializing auth service');
+
+    if (typeof window.config === 'undefined') {
+        console.error('Config not found - make sure config.js is loaded before auth.js');
+        setTimeout(() => {
+            // Try again after a short delay
+            if (typeof window.config !== 'undefined') {
+                console.log('Config found after delay, initializing auth');
+                window.auth = new LinkedInAuth(window.config);
+                console.log('Auth service created and assigned to window.auth');
+            } else {
+                console.error('Config still not available after delay');
+            }
+        }, 500);
+    } else {
+        // Normal initialization
+        window.auth = new LinkedInAuth(window.config);
+        console.log('Auth service created and assigned to window.auth');
     }
-
-    // Debug log config
-    console.log('Using LinkedIn client ID:', window.config.clientId);
-
-    auth = new LinkedInAuth(window.config);
 
     // Update UI based on auth state
     if (typeof updateLinkedInUI === 'function') {

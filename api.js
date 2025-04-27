@@ -8,11 +8,17 @@ class LinkedInAPI {
 
         // Debug log
         console.log('API service initialized with config', this.config);
+        console.log('API initialized with auth object:', auth ? 'present' : 'missing');
     }
 
     // Helper method for API requests
     async apiRequest(endpoint, method = 'GET', data = null) {
-        const token = this.auth.getToken();
+        // Make sure we have up-to-date auth reference
+        if (window.auth) {
+            this.auth = window.auth;
+        }
+
+        const token = this.auth ? this.auth.getToken() : null;
         if (!token) {
             console.error('API Request Error: No authentication token available');
             throw new Error('Not authenticated');
@@ -296,8 +302,15 @@ class LinkedInAPI {
 function initializeAPI() {
     console.log('Attempting to initialize API service');
 
+    // DEBUG: Add more info about current state
+    console.log('Current state check:');
+    console.log('- window.auth exists:', !!window.auth);
+    console.log('- window.config exists:', !!window.config);
+    console.log('- manual token exists:', !!localStorage.getItem('linkedin_manual_token'));
+    console.log('- access token exists:', !!localStorage.getItem('linkedin_access_token'));
+
     if (!window.auth) {
-        console.warn('Auth not available yet, cannot initialize API');
+        console.error('Auth not available yet, cannot initialize API');
         return false;
     }
 
@@ -307,11 +320,13 @@ function initializeAPI() {
     }
 
     try {
+        console.log('Creating new LinkedInAPI instance');
         window.api = new LinkedInAPI(window.auth, window.config);
         console.log('API service initialized and assigned to window.api');
         return true;
     } catch (error) {
-        console.error('Error initializing API:', error);
+        console.error('Error initializing API:', error.message);
+        console.error('Full error:', error);
         return false;
     }
 }

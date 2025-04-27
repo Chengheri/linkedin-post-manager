@@ -6,7 +6,7 @@ window.config = {
     // Copy and paste the exact redirect URI from your LinkedIn App's settings
     redirectUri: 'https://chengheri.github.io/linkedin-post-manager/index.html',
 
-    scope: 'r_liteprofile', // Simplified to just basic profile access
+    scope: 'r_dma_portability_self_serve', // Updated to match portal permissions
     apiBaseUrl: 'https://api.linkedin.com/v2',
     state: generateRandomString(16), // Random state for OAuth security
     authEndpoint: 'https://www.linkedin.com/oauth/v2/authorization',

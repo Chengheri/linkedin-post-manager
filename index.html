@@ -791,7 +791,7 @@
         // LinkedIn Authentication UI Update
         function updateLinkedInUI() {
             // Check if user is authenticated with LinkedIn
-            if (auth && auth.isAuthenticated()) {
+            if (window.auth && window.auth.isAuthenticated()) {
                 // Update the account status indicator
                 accountStatusIcon.textContent = '🟢';
                 // Show connected view
@@ -809,8 +809,8 @@
         // Connect LinkedIn Account
         if (connectLinkedInBtn) {
             connectLinkedInBtn.addEventListener('click', () => {
-                if (auth) {
-                    auth.login();
+                if (window.auth) {
+                    window.auth.login();
                 }
             });
         }
@@ -818,9 +818,9 @@
         // Disconnect LinkedIn Account
         if (disconnectLinkedInBtn) {
             disconnectLinkedInBtn.addEventListener('click', () => {
-                if (auth) {
+                if (window.auth) {
                     if (confirm('Are you sure you want to disconnect your LinkedIn account?')) {
-                        auth.logout();
+                        window.auth.logout();
                     }
                 }
             });
@@ -835,8 +835,8 @@
                     return;
                 }
 
-                if (auth) {
-                    const success = auth.setManualAccessToken(token);
+                if (window.auth) {
+                    const success = window.auth.setManualAccessToken(token);
                     if (success) {
                         alert('Access token saved successfully!');
                         manualTokenInput.value = '';
@@ -849,16 +849,26 @@
         if (syncLinkedInBtn) {
             syncLinkedInBtn.addEventListener('click', async () => {
                 // Debug authentication state
-                console.log('Auth state check:', auth);
-                console.log('Is authenticated:', auth ? auth.isAuthenticated() : false);
+                console.log('=== DEBUG: SYNC BUTTON CLICKED ===');
+                console.log('Auth state check:', window.auth);
+                console.log('Is authenticated:', window.auth ? window.auth.isAuthenticated() : false);
                 console.log('Access token exists:', !!localStorage.getItem('linkedin_manual_token') || !!localStorage.getItem('linkedin_access_token'));
+                console.log('Manual token value:', localStorage.getItem('linkedin_manual_token') ?
+                    localStorage.getItem('linkedin_manual_token').substring(0, 10) + '...' : 'none');
+                console.log('Scripts loaded:');
+                console.log('- auth.js loaded:', typeof window.auth !== 'undefined');
+                console.log('- config.js loaded:', typeof window.config !== 'undefined');
+                console.log('- api.js loaded:', typeof window.api !== 'undefined');
 
                 // Make sure we have access to the API
                 if (!window.api) {
                     console.log('API object not found, attempting to reinitialize...');
 
                     if (typeof window.reinitializeAPI === 'function') {
+                        console.log('Found reinitializeAPI function, calling it now');
                         const success = window.reinitializeAPI();
+                        console.log('Reinitialization result:', success);
+
                         if (!success) {
                             console.error('API reinitialization failed');
                             alert('API connection not initialized. Please refresh the page and try again.');
@@ -867,6 +877,7 @@
                         console.log('API successfully reinitialized');
                     } else {
                         console.error('API reinitializeAPI function not found');
+                        console.error('Window object keys:', Object.keys(window));
                         alert('API connection not initialized. Please refresh the page and try again.');
                         return;
                     }
@@ -874,11 +885,11 @@
 
                 // Force check for manual token
                 const manualToken = localStorage.getItem('linkedin_manual_token');
-                if (manualToken && (!auth || !auth.isAuthenticated())) {
+                if (manualToken && (!window.auth || !window.auth.isAuthenticated())) {
                     console.log('Manual token found but auth not initialized, reinitializing...');
-                    auth.accessToken = manualToken;
+                    window.auth.accessToken = manualToken;
                     const expiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
-                    auth.tokenExpiry = expiresAt;
+                    window.auth.tokenExpiry = expiresAt;
                     localStorage.setItem('linkedin_token_expiry', expiresAt.toString());
 
                     // Make sure API is reinitialized with the auth object
@@ -887,7 +898,7 @@
                     }
                 }
 
-                if (!auth || !auth.isAuthenticated()) {
+                if (!window.auth || !window.auth.isAuthenticated()) {
                     alert('Please connect your LinkedIn account first');
                     return;
                 }
@@ -911,12 +922,12 @@
 
                     // Get posts from LinkedIn API
                     console.log('Fetching regular posts');
-                    const linkedInPosts = await api.getPosts();
+                    const linkedInPosts = await window.api.getPosts();
                     console.log('Fetched posts:', linkedInPosts.length);
 
                     // Get scheduled posts from LinkedIn API
                     console.log('Fetching scheduled posts');
-                    const scheduledPosts = await api.getScheduledPosts();
+                    const scheduledPosts = await window.api.getScheduledPosts();
                     console.log('Fetched scheduled posts:', scheduledPosts.length);
 
                     // Combine all posts
