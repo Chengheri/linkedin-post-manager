@@ -12,10 +12,10 @@ window.config = {
     apiBaseUrl: 'https://api.linkedin.com/v2',
 
     // Proxy server for CORS handling - update this with your deployed proxy URL
-    proxyUrl: 'https://your-proxy-server-url.onrender.com/api',
+    proxyUrl: 'https://linkedin-api-proxy.onrender.com',
 
     // Enable/disable proxy - set to true after deploying your proxy server
-    useProxy: false,
+    useProxy: true,
 
     // Other settings
     state: generateRandomString(16), // Random state for OAuth security
