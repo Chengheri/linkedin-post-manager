@@ -848,7 +848,29 @@
         // Sync Posts from LinkedIn
         if (syncLinkedInBtn) {
             syncLinkedInBtn.addEventListener('click', async () => {
-                if (!api || !auth.isAuthenticated()) {
+                // Debug authentication state
+                console.log('Auth state check:', auth);
+                console.log('Is authenticated:', auth ? auth.isAuthenticated() : false);
+                console.log('Access token exists:', !!localStorage.getItem('linkedin_manual_token') || !!localStorage.getItem('linkedin_access_token'));
+
+                // Make sure we have access to the API
+                if (!window.api) {
+                    console.error('API object not found');
+                    alert('API connection not initialized. Please refresh the page and try again.');
+                    return;
+                }
+
+                // Force check for manual token
+                const manualToken = localStorage.getItem('linkedin_manual_token');
+                if (manualToken && (!auth || !auth.isAuthenticated())) {
+                    console.log('Manual token found but auth not initialized, reinitializing...');
+                    auth.accessToken = manualToken;
+                    const expiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+                    auth.tokenExpiry = expiresAt;
+                    localStorage.setItem('linkedin_token_expiry', expiresAt.toString());
+                }
+
+                if (!auth || !auth.isAuthenticated()) {
                     alert('Please connect your LinkedIn account first');
                     return;
                 }

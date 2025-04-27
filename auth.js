@@ -43,11 +43,37 @@ class LinkedInAuth {
 
     // Check if user is authenticated
     isAuthenticated() {
-        if (!this.accessToken) return false;
+        // Debug log for authentication check
+        console.log('Checking authentication state:');
+        console.log('Access token:', this.accessToken ? this.accessToken.substring(0, 10) + '...' : 'none');
+        console.log('Manual token exists:', !!localStorage.getItem('linkedin_manual_token'));
+
+        // First check if we have a token
+        if (!this.accessToken) {
+            console.log('No access token, checking for manual token');
+            // Double-check for manual token in storage
+            const manualToken = localStorage.getItem('linkedin_manual_token');
+            if (manualToken) {
+                console.log('Found manual token in storage, using it');
+                this.accessToken = manualToken;
+                this.manualAccessToken = manualToken;
+
+                // Set default expiry if not present
+                if (!this.tokenExpiry) {
+                    const expiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+                    this.tokenExpiry = expiresAt;
+                    localStorage.setItem('linkedin_token_expiry', expiresAt.toString());
+                }
+
+                return true;
+            }
+            return false;
+        }
 
         // Check if token is expired
         const expiryTime = parseInt(this.tokenExpiry, 10);
         if (expiryTime && Date.now() > expiryTime) {
+            console.log('Token expired, logging out');
             this.logout(); // Token expired, logout
             return false;
         }
