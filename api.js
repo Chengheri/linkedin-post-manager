@@ -292,16 +292,55 @@ class LinkedInAPI {
     }
 }
 
-// Initialize the API service after auth is loaded
-let api;
+// Make sure the API is initialized when auth changes
+function initializeAPI() {
+    console.log('Attempting to initialize API service');
+
+    if (!window.auth) {
+        console.warn('Auth not available yet, cannot initialize API');
+        return false;
+    }
+
+    if (!window.config) {
+        console.error('Config not available, cannot initialize API');
+        return false;
+    }
+
+    try {
+        window.api = new LinkedInAPI(window.auth, window.config);
+        console.log('API service initialized and assigned to window.api');
+        return true;
+    } catch (error) {
+        console.error('Error initializing API:', error);
+        return false;
+    }
+}
+
+// Initialize the API service whenever the page loads
 document.addEventListener('DOMContentLoaded', () => {
-    // Wait for auth to be initialized
+    console.log('DOM loaded, trying to initialize API');
+
+    // First attempt at initialization
+    if (initializeAPI()) {
+        console.log('API initialized on page load');
+        return;
+    }
+
+    // If not successful, wait for auth to be available
+    console.log('Waiting for auth to be available');
     const authCheckInterval = setInterval(() => {
         if (window.auth) {
             console.log('Auth detected, initializing API service');
-            api = new LinkedInAPI(auth, window.config);
-            console.log('API service connected');
-            clearInterval(authCheckInterval);
+            if (initializeAPI()) {
+                console.log('API service connected');
+                clearInterval(authCheckInterval);
+            }
         }
     }, 100);
 });
+
+// Add a global function to manually reinitialize API
+window.reinitializeAPI = function() {
+    console.log('Manual API reinitialization requested');
+    return initializeAPI();
+};
