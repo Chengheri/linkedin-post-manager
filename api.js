@@ -129,31 +129,34 @@ class LinkedInAPI {
 
             // Try the endpoints through our API request method which handles proxy
             try {
-                // Try the member snapshot endpoint first
-                console.log('Trying memberSnapshotData endpoint');
-                const snapshotData = await this.apiRequest('/rest/memberSnapshotData');
-                console.log('Member snapshot data received');
-                return this.processDataPortabilityResponse(snapshotData, 'snapshot');
-            } catch (snapshotError) {
-                console.error('Error with memberSnapshotData endpoint:', snapshotError.message);
+                // Try to get existing authorization
+                console.log('Trying DMA memberAuthorizations endpoint (FINDER)');
+                const authPath = '/rest/dma/memberAuthorizations?action=findAll';
+                const authData = await this.apiRequest(authPath);
+                console.log('Member authorizations data received');
+                return this.processDataPortabilityResponse(authData, 'authorizations');
+            } catch (authError) {
+                console.error('Error with memberAuthorizations endpoint:', authError.message);
 
                 try {
-                    // Try the authorizations endpoint
-                    console.log('Trying memberAuthorizations endpoint');
-                    const authData = await this.apiRequest('/rest/memberAuthorizations');
-                    console.log('Member authorizations data received');
-                    return this.processDataPortabilityResponse(authData, 'authorizations');
-                } catch (authError) {
-                    console.error('Error with memberAuthorizations endpoint:', authError.message);
+                    // Try member change logs
+                    console.log('Trying DMA memberChangeLogs endpoint (FINDER)');
+                    const logsPath = '/rest/dma/memberChangeLogs?action=findAll';
+                    const logsData = await this.apiRequest(logsPath);
+                    console.log('Member change logs data received');
+                    return this.processDataPortabilityResponse(logsData, 'changeLogs');
+                } catch (logsError) {
+                    console.error('Error with memberChangeLogs endpoint:', logsError.message);
 
                     try {
-                        // Try the change logs endpoint as last resort
-                        console.log('Trying memberChangeLogs endpoint');
-                        const logsData = await this.apiRequest('/rest/memberChangeLogs');
-                        console.log('Member change logs data received');
-                        return this.processDataPortabilityResponse(logsData, 'changeLogs');
-                    } catch (logsError) {
-                        console.error('Error with memberChangeLogs endpoint:', logsError.message);
+                        // Try the snapshot data
+                        console.log('Trying DMA memberSnapshotData endpoint (FINDER)');
+                        const snapshotPath = '/rest/dma/memberSnapshotData?action=findAll';
+                        const snapshotData = await this.apiRequest(snapshotPath);
+                        console.log('Member snapshot data received');
+                        return this.processDataPortabilityResponse(snapshotData, 'snapshot');
+                    } catch (snapshotError) {
+                        console.error('Error with memberSnapshotData endpoint:', snapshotError.message);
                         console.warn('All endpoints failed, using simulated data');
                         return this.simulatePostsResponse();
                     }
