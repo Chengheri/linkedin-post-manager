@@ -2,13 +2,13 @@
 
 class LinkedInAPI {
     constructor(auth, config) {
-        this.auth = auth;
-        this.config = config;
-        this.apiBase = config.apiBaseUrl;
+        this.auth = auth || null;
+        this.config = config || {};
+        this.apiBase = config ? config.apiBaseUrl : 'https://api.linkedin.com/v2';
 
         // Debug log
         console.log('API service initialized with config', this.config);
-        console.log('API initialized with auth object:', auth ? 'present' : 'missing');
+        console.log('API initialized with auth object:', this.auth ? 'present' : 'missing');
     }
 
     // Helper method for API requests
@@ -16,6 +16,15 @@ class LinkedInAPI {
         // Make sure we have up-to-date auth reference
         if (window.auth) {
             this.auth = window.auth;
+            console.log('Updated auth reference from window.auth');
+        } else if (localStorage.getItem('linkedin_manual_token')) {
+            console.log('Creating auth reference from manual token');
+            // Create a minimal auth object
+            this.auth = {
+                getToken: function() {
+                    return localStorage.getItem('linkedin_manual_token');
+                }
+            };
         }
 
         const token = this.auth ? this.auth.getToken() : null;
@@ -309,19 +318,31 @@ function initializeAPI() {
     console.log('- manual token exists:', !!localStorage.getItem('linkedin_manual_token'));
     console.log('- access token exists:', !!localStorage.getItem('linkedin_access_token'));
 
-    if (!window.auth) {
-        console.error('Auth not available yet, cannot initialize API');
-        return false;
-    }
-
-    if (!window.config) {
-        console.error('Config not available, cannot initialize API');
-        return false;
-    }
-
     try {
+        // Even if window.auth doesn't exist, create a minimal version that will be updated later
+        if (!window.auth && localStorage.getItem('linkedin_manual_token')) {
+            console.log('Creating temporary auth object from manual token');
+            // Create a minimal mock auth object
+            window.auth = {
+                getToken: function() {
+                    return localStorage.getItem('linkedin_manual_token');
+                },
+                isAuthenticated: function() {
+                    return !!localStorage.getItem('linkedin_manual_token');
+                }
+            };
+        }
+
+        if (!window.config) {
+            console.error('Config not available, cannot initialize API');
+            console.log('Attempting to create minimal config');
+            window.config = {
+                apiBaseUrl: 'https://api.linkedin.com/v2'
+            };
+        }
+
         console.log('Creating new LinkedInAPI instance');
-        window.api = new LinkedInAPI(window.auth, window.config);
+        window.api = new LinkedInAPI(window.auth || {}, window.config);
         console.log('API service initialized and assigned to window.api');
         return true;
     } catch (error) {

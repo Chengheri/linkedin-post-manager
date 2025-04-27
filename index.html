@@ -860,6 +860,23 @@
                 console.log('- config.js loaded:', typeof window.config !== 'undefined');
                 console.log('- api.js loaded:', typeof window.api !== 'undefined');
 
+                // Check for manual token first regardless of auth object
+                const manualToken = localStorage.getItem('linkedin_manual_token');
+                if (manualToken) {
+                    console.log('Manual token found in localStorage');
+
+                    // If no auth object exists yet, create a simplified one
+                    if (!window.auth) {
+                        console.log('No auth object, creating temporary one from manual token');
+                        window.auth = {
+                            accessToken: manualToken,
+                            tokenExpiry: Date.now() + (24 * 60 * 60 * 1000),
+                            isAuthenticated: function() { return true; },
+                            getToken: function() { return manualToken; }
+                        };
+                    }
+                }
+
                 // Make sure we have access to the API
                 if (!window.api) {
                     console.log('API object not found, attempting to reinitialize...');
@@ -871,30 +888,25 @@
 
                         if (!success) {
                             console.error('API reinitialization failed');
-                            alert('API connection not initialized. Please refresh the page and try again.');
-                            return;
+
+                            // As a last resort, try creating the API object directly
+                            try {
+                                console.log('Attempting direct API creation as last resort');
+                                window.api = new LinkedInAPI(window.auth || {}, window.config || {apiBaseUrl: 'https://api.linkedin.com/v2'});
+                                console.log('Direct API creation successful');
+                            } catch (e) {
+                                console.error('Direct API creation also failed:', e);
+                                alert('API connection failed. Please refresh the page and try again.');
+                                return;
+                            }
+                        } else {
+                            console.log('API successfully reinitialized');
                         }
-                        console.log('API successfully reinitialized');
                     } else {
                         console.error('API reinitializeAPI function not found');
                         console.error('Window object keys:', Object.keys(window));
                         alert('API connection not initialized. Please refresh the page and try again.');
                         return;
-                    }
-                }
-
-                // Force check for manual token
-                const manualToken = localStorage.getItem('linkedin_manual_token');
-                if (manualToken && (!window.auth || !window.auth.isAuthenticated())) {
-                    console.log('Manual token found but auth not initialized, reinitializing...');
-                    window.auth.accessToken = manualToken;
-                    const expiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
-                    window.auth.tokenExpiry = expiresAt;
-                    localStorage.setItem('linkedin_token_expiry', expiresAt.toString());
-
-                    // Make sure API is reinitialized with the auth object
-                    if (typeof window.reinitializeAPI === 'function') {
-                        window.reinitializeAPI();
                     }
                 }
 

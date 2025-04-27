@@ -1,6 +1,6 @@
 // LinkedIn API Configuration
 window.config = {
-    clientId: '78sx18y82409uh', // Updated client ID
+    clientId: '78syj2td59l5sy', // Updated client ID
 
     // IMPORTANT: This must EXACTLY match what's in your LinkedIn Developer Portal
     // Copy and paste the exact redirect URI from your LinkedIn App's settings
