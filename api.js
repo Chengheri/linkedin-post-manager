@@ -11,6 +11,19 @@ class LinkedInAPI {
         console.log('API initialized with auth object:', this.auth ? 'present' : 'missing');
     }
 
+    // Helper method to get API base URL - uses proxy if configured
+    getApiUrl() {
+        // Check if proxy is enabled in config
+        if (this.config && this.config.useProxy && this.config.proxyUrl) {
+            console.log('Using proxy server for API requests');
+            return this.config.proxyUrl;
+        }
+
+        // Fall back to direct API access (likely to fail with CORS)
+        console.log('Using direct API access (may face CORS issues)');
+        return this.apiBase;
+    }
+
     // Helper method for API requests
     async apiRequest(endpoint, method = 'GET', data = null) {
         // Make sure we have up-to-date auth reference
@@ -35,6 +48,11 @@ class LinkedInAPI {
 
         console.log(`Making ${method} request to ${endpoint} with token:`, token.substring(0, 10) + '...');
 
+        // Get the base URL (either direct or proxy)
+        const baseUrl = this.getApiUrl();
+        const url = `${baseUrl}${endpoint}`;
+        console.log(`Sending request to: ${url}`);
+
         const options = {
             method,
             headers: {
@@ -48,8 +66,8 @@ class LinkedInAPI {
         }
 
         try {
-            console.log(`Fetching ${this.apiBase}${endpoint} with options:`, options);
-            const response = await fetch(`${this.apiBase}${endpoint}`, options);
+            console.log(`Fetching ${url} with options:`, options);
+            const response = await fetch(url, options);
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -109,98 +127,38 @@ class LinkedInAPI {
 
             console.log('Using token:', token.substring(0, 10) + '...');
 
-            // Try to get member snapshot data
-            const snapshotEndpoint = '/rest/memberSnapshotData';
-            console.log('Fetching member snapshot from:', this.apiBase + snapshotEndpoint);
-
+            // Try the endpoints through our API request method which handles proxy
             try {
-                console.log('Making API request with headers:', {
-                    'Authorization': `Bearer ${token.substring(0, 10)}...`,
-                    'Content-Type': 'application/json',
-                });
-
-                const snapshotResponse = await fetch(`${this.apiBase}${snapshotEndpoint}`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    }
-                });
-
-                console.log('Snapshot response status:', snapshotResponse.status);
-                console.log('Snapshot response headers:', [...snapshotResponse.headers.entries()]);
-
-                if (!snapshotResponse.ok) {
-                    const errorText = await snapshotResponse.text();
-                    console.error(`LinkedIn Data Portability API error (${snapshotResponse.status}):`, errorText);
-                    console.warn('Trying memberAuthorizations endpoint...');
-
-                    // Try the memberAuthorizations endpoint
-                    const authEndpoint = '/rest/memberAuthorizations';
-                    console.log('Fetching member authorizations from:', this.apiBase + authEndpoint);
-
-                    const authResponse = await fetch(`${this.apiBase}${authEndpoint}`, {
-                        method: 'GET',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json',
-                        }
-                    });
-
-                    console.log('Authorizations response status:', authResponse.status);
-
-                    if (!authResponse.ok) {
-                        const authErrorText = await authResponse.text();
-                        console.error(`LinkedIn memberAuthorizations API error (${authResponse.status}):`, authErrorText);
-                        console.warn('Trying memberChangeLogs endpoint...');
-
-                        // Try the memberChangeLogs endpoint as a last resort
-                        const logsEndpoint = '/rest/memberChangeLogs';
-                        console.log('Fetching member change logs from:', this.apiBase + logsEndpoint);
-
-                        const logsResponse = await fetch(`${this.apiBase}${logsEndpoint}`, {
-                            method: 'GET',
-                            headers: {
-                                'Authorization': `Bearer ${token}`,
-                                'Content-Type': 'application/json',
-                            }
-                        });
-
-                        console.log('ChangeLogs response status:', logsResponse.status);
-
-                        if (!logsResponse.ok) {
-                            const logsErrorText = await logsResponse.text();
-                            console.error(`LinkedIn memberChangeLogs API error (${logsResponse.status}):`, logsErrorText);
-                            console.warn('All endpoints failed, using simulated data');
-                            return this.simulatePostsResponse();
-                        }
-
-                        const logsData = await logsResponse.json();
-                        console.log('Member change logs data:', JSON.stringify(logsData, null, 2));
-
-                        // Convert the logs data to post format if possible
-                        return this.processDataPortabilityResponse(logsData, 'changeLogs');
-                    }
-
-                    const authData = await authResponse.json();
-                    console.log('Member authorizations data:', JSON.stringify(authData, null, 2));
-
-                    // Convert the authorizations data to post format if possible
-                    return this.processDataPortabilityResponse(authData, 'authorizations');
-                }
-
-                const snapshotData = await snapshotResponse.json();
-                console.log('Member snapshot data:', JSON.stringify(snapshotData, null, 2));
-
-                // Convert the snapshot data to post format
+                // Try the member snapshot endpoint first
+                console.log('Trying memberSnapshotData endpoint');
+                const snapshotData = await this.apiRequest('/rest/memberSnapshotData');
+                console.log('Member snapshot data received');
                 return this.processDataPortabilityResponse(snapshotData, 'snapshot');
+            } catch (snapshotError) {
+                console.error('Error with memberSnapshotData endpoint:', snapshotError.message);
 
-            } catch (apiError) {
-                console.error('Error calling Data Portability API:', apiError.message);
-                console.warn('Using simulated data due to API call error');
-                return this.simulatePostsResponse();
+                try {
+                    // Try the authorizations endpoint
+                    console.log('Trying memberAuthorizations endpoint');
+                    const authData = await this.apiRequest('/rest/memberAuthorizations');
+                    console.log('Member authorizations data received');
+                    return this.processDataPortabilityResponse(authData, 'authorizations');
+                } catch (authError) {
+                    console.error('Error with memberAuthorizations endpoint:', authError.message);
+
+                    try {
+                        // Try the change logs endpoint as last resort
+                        console.log('Trying memberChangeLogs endpoint');
+                        const logsData = await this.apiRequest('/rest/memberChangeLogs');
+                        console.log('Member change logs data received');
+                        return this.processDataPortabilityResponse(logsData, 'changeLogs');
+                    } catch (logsError) {
+                        console.error('Error with memberChangeLogs endpoint:', logsError.message);
+                        console.warn('All endpoints failed, using simulated data');
+                        return this.simulatePostsResponse();
+                    }
+                }
             }
-
         } catch (error) {
             console.error('General error fetching data:', error.message);
             console.warn('Using simulated data due to general error');

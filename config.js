@@ -1,13 +1,23 @@
 // LinkedIn API Configuration
 window.config = {
-    clientId: '78syj2td59l5sy', // Updated client ID
+    clientId: '78sx18y82409uh', // Updated client ID
 
     // IMPORTANT: This must EXACTLY match what's in your LinkedIn Developer Portal
     // Copy and paste the exact redirect URI from your LinkedIn App's settings
     redirectUri: 'https://chengheri.github.io/linkedin-post-manager/index.html',
 
     scope: 'r_dma_portability_self_serve', // Updated to match portal permissions
+
+    // LinkedIn API settings
     apiBaseUrl: 'https://api.linkedin.com/v2',
+
+    // Proxy server for CORS handling - update this with your deployed proxy URL
+    proxyUrl: 'https://your-proxy-server-url.onrender.com/api',
+
+    // Enable/disable proxy - set to true after deploying your proxy server
+    useProxy: false,
+
+    // Other settings
     state: generateRandomString(16), // Random state for OAuth security
     authEndpoint: 'https://www.linkedin.com/oauth/v2/authorization',
     tokenEndpoint: 'https://www.linkedin.com/oauth/v2/accessToken',
