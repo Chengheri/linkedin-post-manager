@@ -100,17 +100,114 @@ class LinkedInAPI {
     async getPosts() {
         try {
             console.log('Attempting to fetch posts from LinkedIn API');
-            // First try the real API call
-            //const posts = await this.apiRequest('/ugcPosts?q=authors&authors=List(urn%3Ali%3Aperson%3A<id>)');
-            //return posts;
+            const token = this.auth.getToken();
 
-            // If that fails or for demo, throw to use simulation
-            throw new Error('Using simulated posts for demo');
+            if (!token) {
+                throw new Error('No authentication token available');
+            }
+
+            console.log('Using token:', token.substring(0, 10) + '...');
+
+            // Try to get user profile first to get the user ID
+            const profileEndpoint = '/me';
+            console.log('Fetching user profile from:', this.apiBase + profileEndpoint);
+
+            const profileResponse = await fetch(`${this.apiBase}${profileEndpoint}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!profileResponse.ok) {
+                const errorText = await profileResponse.text();
+                console.error(`LinkedIn API profile error (${profileResponse.status}):`, errorText);
+                console.log('Using simulated data instead');
+                return this.simulatePostsResponse();
+            }
+
+            const profileData = await profileResponse.json();
+            console.log('Profile data received:', profileData);
+
+            // Get the user ID from the profile
+            const userId = profileData.id;
+            if (!userId) {
+                console.error('Could not find user ID in profile response');
+                return this.simulatePostsResponse();
+            }
+
+            // Now try to fetch the posts
+            const postsEndpoint = `/shares?q=owners&owners=${encodeURIComponent(`urn:li:person:${userId}`)}`;
+            console.log('Fetching posts from:', this.apiBase + postsEndpoint);
+
+            const postsResponse = await fetch(`${this.apiBase}${postsEndpoint}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!postsResponse.ok) {
+                const errorText = await postsResponse.text();
+                console.error(`LinkedIn API posts error (${postsResponse.status}):`, errorText);
+                console.log('Using simulated data instead');
+                return this.simulatePostsResponse();
+            }
+
+            const postsData = await postsResponse.json();
+            console.log('Posts data received:', postsData);
+
+            // Transform the LinkedIn API response to our app's format
+            const formattedPosts = this.formatLinkedInPosts(postsData);
+            console.log('Formatted posts:', formattedPosts);
+
+            return formattedPosts.length > 0 ? formattedPosts : this.simulatePostsResponse();
+
         } catch (error) {
-            console.log('Using simulated posts response due to:', error.message);
+            console.log('Error fetching posts:', error.message);
             // In a real implementation, this would use LinkedIn's UGC API
             // For demo purposes, we'll simulate the response
             return this.simulatePostsResponse();
+        }
+    }
+
+    // Format LinkedIn posts to match our app's data structure
+    formatLinkedInPosts(apiResponse) {
+        try {
+            if (!apiResponse || !apiResponse.elements || !Array.isArray(apiResponse.elements)) {
+                console.error('Invalid LinkedIn API response format');
+                return [];
+            }
+
+            return apiResponse.elements.map(post => {
+                // Extract post information from LinkedIn API response
+                const createdTime = post.created ? post.created.time : Date.now();
+                const content = post.text ? post.text.text : 'No content available';
+
+                // Extract engagement metrics if available
+                const likes = post.totalSocialActivityCounts ? (post.totalSocialActivityCounts.likes || 0) : 0;
+                const comments = post.totalSocialActivityCounts ? (post.totalSocialActivityCounts.comments || 0) : 0;
+                const shares = post.totalSocialActivityCounts ? (post.totalSocialActivityCounts.shares || 0) : 0;
+
+                return {
+                    id: `linkedin_${post.id || Date.now()}`,
+                    title: content.substring(0, 50) + (content.length > 50 ? '...' : ''),
+                    content: content,
+                    status: 'published',
+                    createdAt: new Date(createdTime).toISOString(),
+                    scheduledDate: null,
+                    engagement: {
+                        likes: likes,
+                        comments: comments,
+                        shares: shares
+                    }
+                };
+            });
+        } catch (error) {
+            console.error('Error formatting LinkedIn posts:', error);
+            return [];
         }
     }
 

@@ -947,20 +947,45 @@
                     const allLinkedInPosts = [...linkedInPosts, ...scheduledPosts];
                     console.log('Total posts from LinkedIn:', allLinkedInPosts.length);
 
-                    // Add LinkedIn posts to the top of existing posts
-                    // (avoiding duplicates based on LinkedIn ID)
-                    const existingLinkedInIds = posts
-                        .filter(post => post.id && post.id.startsWith('linkedin_'))
-                        .map(post => post.id);
+                    // Create a map of existing LinkedIn post IDs for faster lookup
+                    console.log('Creating lookup map of existing posts');
+                    const existingPostIds = new Map();
+                    posts.forEach(post => {
+                        if (post.id) {
+                            existingPostIds.set(post.id, true);
+                        }
 
-                    const newPosts = allLinkedInPosts.filter(post =>
-                        !existingLinkedInIds.includes(post.id)
-                    );
+                        // Also check for LinkedIn posts with different ID formats
+                        if (post.linkedInId) {
+                            existingPostIds.set(post.linkedInId, true);
+                            existingPostIds.set(`linkedin_${post.linkedInId}`, true);
+                        }
+                    });
+
+                    console.log('Existing post IDs:', existingPostIds.size);
+
+                    // Filter out duplicates using the map
+                    const newPosts = allLinkedInPosts.filter(post => {
+                        // Check if this post already exists
+                        const isDuplicate = existingPostIds.has(post.id);
+
+                        if (isDuplicate) {
+                            console.log('Skipping duplicate post:', post.id);
+                        }
+
+                        return !isDuplicate;
+                    });
+
                     console.log('New posts to add:', newPosts.length);
 
-                    posts = [...newPosts, ...posts];
-                    savePosts();
-                    console.log('Posts saved, total count:', posts.length);
+                    // Add the new posts to the beginning of the posts array
+                    if (newPosts.length > 0) {
+                        posts = [...newPosts, ...posts];
+                        savePosts();
+                        console.log('Posts saved, total count:', posts.length);
+                    } else {
+                        console.log('No new posts to add');
+                    }
 
                     // Complete the progress indicator
                     clearInterval(progressInterval);
