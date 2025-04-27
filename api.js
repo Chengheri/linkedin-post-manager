@@ -99,7 +99,7 @@ class LinkedInAPI {
     // Get user's recent posts
     async getPosts() {
         try {
-            console.log('Attempting to fetch posts from LinkedIn API');
+            console.log('Attempting to fetch data using Data Portability API');
             const token = this.auth.getToken();
 
             if (!token) {
@@ -108,19 +108,18 @@ class LinkedInAPI {
             }
 
             console.log('Using token:', token.substring(0, 10) + '...');
-            console.log('API Base URL:', this.apiBase);
 
-            // Try to get user profile first to get the user ID
-            const profileEndpoint = '/me';
-            console.log('Fetching user profile from:', this.apiBase + profileEndpoint);
+            // Try to get member snapshot data
+            const snapshotEndpoint = '/rest/memberSnapshotData';
+            console.log('Fetching member snapshot from:', this.apiBase + snapshotEndpoint);
 
             try {
-                console.log('Making profile request with headers:', {
+                console.log('Making API request with headers:', {
                     'Authorization': `Bearer ${token.substring(0, 10)}...`,
                     'Content-Type': 'application/json',
                 });
 
-                const profileResponse = await fetch(`${this.apiBase}${profileEndpoint}`, {
+                const snapshotResponse = await fetch(`${this.apiBase}${snapshotEndpoint}`, {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -128,43 +127,38 @@ class LinkedInAPI {
                     }
                 });
 
-                console.log('Profile response status:', profileResponse.status);
-                console.log('Profile response headers:', [...profileResponse.headers.entries()]);
+                console.log('Snapshot response status:', snapshotResponse.status);
+                console.log('Snapshot response headers:', [...snapshotResponse.headers.entries()]);
 
-                if (!profileResponse.ok) {
-                    const errorText = await profileResponse.text();
-                    console.error(`LinkedIn API profile error (${profileResponse.status}):`, errorText);
-                    console.warn('Using simulated data instead due to profile API error');
-                    return this.simulatePostsResponse();
-                }
+                if (!snapshotResponse.ok) {
+                    const errorText = await snapshotResponse.text();
+                    console.error(`LinkedIn Data Portability API error (${snapshotResponse.status}):`, errorText);
+                    console.warn('Trying memberAuthorizations endpoint...');
 
-                const profileData = await profileResponse.json();
-                console.log('Profile data received:', JSON.stringify(profileData, null, 2));
+                    // Try the memberAuthorizations endpoint
+                    const authEndpoint = '/rest/memberAuthorizations';
+                    console.log('Fetching member authorizations from:', this.apiBase + authEndpoint);
 
-                // Get the user ID from the profile
-                const userId = profileData.id;
-                if (!userId) {
-                    console.error('Could not find user ID in profile response');
-                    console.warn('Profile data lacks ID, using simulated data instead');
-                    return this.simulatePostsResponse();
-                }
+                    const authResponse = await fetch(`${this.apiBase}${authEndpoint}`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        }
+                    });
 
-                console.log('Found user ID:', userId);
+                    console.log('Authorizations response status:', authResponse.status);
 
-                // Now try to fetch the posts
-                // Try multiple endpoints to see what works
-                const endpoints = [
-                    `/shares?q=owners&owners=${encodeURIComponent(`urn:li:person:${userId}`)}`,
-                    `/ugcPosts?q=authors&authors=List(${encodeURIComponent(`urn:li:person:${userId}`)})`,
-                    `/activityFeeds?q=owners&owners=${encodeURIComponent(`urn:li:person:${userId}`)}`
-                ];
+                    if (!authResponse.ok) {
+                        const authErrorText = await authResponse.text();
+                        console.error(`LinkedIn memberAuthorizations API error (${authResponse.status}):`, authErrorText);
+                        console.warn('Trying memberChangeLogs endpoint...');
 
-                for (let i = 0; i < endpoints.length; i++) {
-                    const endpoint = endpoints[i];
-                    console.log(`Trying endpoint ${i+1}/${endpoints.length}: ${this.apiBase}${endpoint}`);
+                        // Try the memberChangeLogs endpoint as a last resort
+                        const logsEndpoint = '/rest/memberChangeLogs';
+                        console.log('Fetching member change logs from:', this.apiBase + logsEndpoint);
 
-                    try {
-                        const postsResponse = await fetch(`${this.apiBase}${endpoint}`, {
+                        const logsResponse = await fetch(`${this.apiBase}${logsEndpoint}`, {
                             method: 'GET',
                             headers: {
                                 'Authorization': `Bearer ${token}`,
@@ -172,121 +166,162 @@ class LinkedInAPI {
                             }
                         });
 
-                        console.log(`Endpoint ${i+1} response status:`, postsResponse.status);
+                        console.log('ChangeLogs response status:', logsResponse.status);
 
-                        if (postsResponse.ok) {
-                            const postsData = await postsResponse.json();
-                            console.log(`Endpoint ${i+1} data:`, JSON.stringify(postsData, null, 2));
-
-                            // See if we got valid posts
-                            if (postsData && postsData.elements && Array.isArray(postsData.elements) && postsData.elements.length > 0) {
-                                console.log(`Found ${postsData.elements.length} posts with endpoint ${i+1}`);
-
-                                // Transform the LinkedIn API response to our app's format
-                                const formattedPosts = this.formatLinkedInPosts(postsData);
-                                console.log('Formatted posts:', formattedPosts);
-
-                                return formattedPosts.length > 0 ? formattedPosts : this.simulatePostsResponse();
-                            } else {
-                                console.log(`No posts found with endpoint ${i+1}, trying next endpoint`);
-                            }
-                        } else {
-                            const errorText = await postsResponse.text();
-                            console.error(`LinkedIn API endpoint ${i+1} error (${postsResponse.status}):`, errorText);
-                            console.log('Trying next endpoint');
+                        if (!logsResponse.ok) {
+                            const logsErrorText = await logsResponse.text();
+                            console.error(`LinkedIn memberChangeLogs API error (${logsResponse.status}):`, logsErrorText);
+                            console.warn('All endpoints failed, using simulated data');
+                            return this.simulatePostsResponse();
                         }
-                    } catch (endpointError) {
-                        console.error(`Error with endpoint ${i+1}:`, endpointError.message);
-                        console.log('Trying next endpoint');
+
+                        const logsData = await logsResponse.json();
+                        console.log('Member change logs data:', JSON.stringify(logsData, null, 2));
+
+                        // Convert the logs data to post format if possible
+                        return this.processDataPortabilityResponse(logsData, 'changeLogs');
                     }
+
+                    const authData = await authResponse.json();
+                    console.log('Member authorizations data:', JSON.stringify(authData, null, 2));
+
+                    // Convert the authorizations data to post format if possible
+                    return this.processDataPortabilityResponse(authData, 'authorizations');
                 }
 
-                console.warn('All endpoints failed, using simulated data');
-                return this.simulatePostsResponse();
+                const snapshotData = await snapshotResponse.json();
+                console.log('Member snapshot data:', JSON.stringify(snapshotData, null, 2));
 
-            } catch (profileError) {
-                console.error('Error fetching LinkedIn profile:', profileError.message);
-                console.warn('Using simulated data due to profile fetch error');
+                // Convert the snapshot data to post format
+                return this.processDataPortabilityResponse(snapshotData, 'snapshot');
+
+            } catch (apiError) {
+                console.error('Error calling Data Portability API:', apiError.message);
+                console.warn('Using simulated data due to API call error');
                 return this.simulatePostsResponse();
             }
 
         } catch (error) {
-            console.error('Error fetching posts:', error.message);
-            console.warn('Using simulated posts due to general error');
+            console.error('General error fetching data:', error.message);
+            console.warn('Using simulated data due to general error');
             return this.simulatePostsResponse();
         }
     }
 
-    // Format LinkedIn posts to match our app's data structure
-    formatLinkedInPosts(apiResponse) {
+    // Process data from the Data Portability API
+    processDataPortabilityResponse(data, responseType) {
         try {
-            console.log('Raw LinkedIn API response:', JSON.stringify(apiResponse, null, 2));
+            console.log(`Processing ${responseType} data from Data Portability API`);
 
-            if (!apiResponse || !apiResponse.elements || !Array.isArray(apiResponse.elements)) {
-                console.error('Invalid LinkedIn API response format');
-                return [];
+            // Each response type has a different structure
+            let formattedPosts = [];
+
+            if (responseType === 'snapshot') {
+                // Try to find posts in the snapshot data
+                if (data.postsCreated && Array.isArray(data.postsCreated)) {
+                    formattedPosts = data.postsCreated.map(post => this.formatDataPortabilityPost(post, 'snapshot'));
+                } else if (data.posts && Array.isArray(data.posts)) {
+                    formattedPosts = data.posts.map(post => this.formatDataPortabilityPost(post, 'snapshot'));
+                } else if (data.shares && Array.isArray(data.shares)) {
+                    formattedPosts = data.shares.map(post => this.formatDataPortabilityPost(post, 'snapshot'));
+                } else if (data.articles && Array.isArray(data.articles)) {
+                    formattedPosts = data.articles.map(post => this.formatDataPortabilityPost(post, 'snapshot'));
+                }
+            } else if (responseType === 'authorizations') {
+                // Extract what we can from authorizations data
+                if (data.elements && Array.isArray(data.elements)) {
+                    formattedPosts = data.elements.map(item => this.formatDataPortabilityPost(item, 'authorizations'));
+                }
+            } else if (responseType === 'changeLogs') {
+                // Extract what we can from change logs
+                if (data.elements && Array.isArray(data.elements)) {
+                    formattedPosts = data.elements.map(item => this.formatDataPortabilityPost(item, 'changeLogs'));
+                }
             }
 
-            const formattedPosts = apiResponse.elements.map(post => {
-                console.log('Processing LinkedIn post:', post);
+            console.log(`Formatted ${formattedPosts.length} posts from Data Portability API`);
 
-                // Extract post information from LinkedIn API response
-                const createdTime = post.created ? post.created.time : Date.now();
+            if (formattedPosts.length === 0) {
+                console.warn('No posts could be extracted from Data Portability API, using simulated data');
+                return this.simulatePostsResponse();
+            }
 
-                // Extract content - handle different response formats
-                let content = 'No content available';
-                let title = 'LinkedIn Post';
-
-                // Check for different content locations in the API response
-                if (post.text && typeof post.text.text === 'string') {
-                    content = post.text.text;
-                } else if (post.text && typeof post.text === 'string') {
-                    content = post.text;
-                } else if (post.commentary && typeof post.commentary.text === 'string') {
-                    content = post.commentary.text;
-                } else if (post.message && typeof post.message.text === 'string') {
-                    content = post.message.text;
-                } else if (typeof post.content === 'string') {
-                    content = post.content;
-                }
-
-                // Create a title from content or use a fallback
-                if (content && content !== 'No content available') {
-                    title = content.substring(0, 50) + (content.length > 50 ? '...' : '');
-                } else if (post.title) {
-                    title = post.title;
-                } else if (post.subject) {
-                    title = post.subject;
-                }
-
-                console.log('Extracted title:', title);
-                console.log('Extracted content:', content.substring(0, 100) + (content.length > 100 ? '...' : ''));
-
-                // Extract engagement metrics if available
-                const likes = post.totalSocialActivityCounts ? (post.totalSocialActivityCounts.likes || 0) : 0;
-                const comments = post.totalSocialActivityCounts ? (post.totalSocialActivityCounts.comments || 0) : 0;
-                const shares = post.totalSocialActivityCounts ? (post.totalSocialActivityCounts.shares || 0) : 0;
-
-                return {
-                    id: `linkedin_${post.id || Date.now()}`,
-                    title: title,
-                    content: content,
-                    status: 'published',
-                    createdAt: new Date(createdTime).toISOString(),
-                    scheduledDate: null,
-                    engagement: {
-                        likes: likes,
-                        comments: comments,
-                        shares: shares
-                    }
-                };
-            });
-
-            console.log('Formatted posts:', formattedPosts);
             return formattedPosts;
+
         } catch (error) {
-            console.error('Error formatting LinkedIn posts:', error);
-            return [];
+            console.error('Error processing Data Portability API response:', error.message);
+            return this.simulatePostsResponse();
+        }
+    }
+
+    // Format a post from Data Portability API
+    formatDataPortabilityPost(item, dataType) {
+        try {
+            // Different format based on data type
+            let title = 'LinkedIn Content';
+            let content = 'Content from LinkedIn';
+            let createdAt = new Date().toISOString();
+            let id = `linkedin_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+            let engagement = { likes: 0, comments: 0, shares: 0 };
+
+            if (dataType === 'snapshot') {
+                // Handle snapshot data format
+                if (item.title) title = item.title;
+                if (item.content) content = item.content;
+                if (item.text) content = item.text;
+                if (item.commentary) content = item.commentary;
+                if (item.description) {
+                    content = item.description;
+                    if (!title || title === 'LinkedIn Content') title = content.substring(0, 50);
+                }
+
+                if (item.createdAt) createdAt = new Date(item.createdAt).toISOString();
+                if (item.created) createdAt = new Date(item.created).toISOString();
+                if (item.timeCreated) createdAt = new Date(item.timeCreated).toISOString();
+
+                if (item.id) id = `linkedin_${item.id}`;
+
+                if (item.numLikes) engagement.likes = item.numLikes;
+                if (item.numComments) engagement.comments = item.numComments;
+                if (item.numShares) engagement.shares = item.numShares;
+            } else if (dataType === 'authorizations' || dataType === 'changeLogs') {
+                // Handle authorizations/logs format - these might not have post content
+                // but we can at least show some data
+                if (item.name) title = item.name;
+                if (item.type) title = `${item.type} Record`;
+                if (item.description) content = item.description;
+                if (item.details) content = JSON.stringify(item.details);
+
+                if (item.createdAt) createdAt = new Date(item.createdAt).toISOString();
+                if (item.lastModified) createdAt = new Date(item.lastModified).toISOString();
+                if (item.timestamp) createdAt = new Date(item.timestamp).toISOString();
+
+                if (item.id) id = `linkedin_${item.id}`;
+            }
+
+            // Ensure title is not too long
+            if (title.length > 100) title = title.substring(0, 97) + '...';
+
+            return {
+                id: id,
+                title: title,
+                content: content,
+                status: 'published',
+                createdAt: createdAt,
+                scheduledDate: null,
+                engagement: engagement
+            };
+        } catch (error) {
+            console.error('Error formatting individual post:', error.message);
+            return {
+                id: `linkedin_error_${Date.now()}`,
+                title: 'Error Processing Item',
+                content: 'There was an error processing this item from LinkedIn.',
+                status: 'published',
+                createdAt: new Date().toISOString(),
+                scheduledDate: null,
+                engagement: { likes: 0, comments: 0, shares: 0 }
+            };
         }
     }
 
