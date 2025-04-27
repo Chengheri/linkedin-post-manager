@@ -4,7 +4,7 @@ window.config = {
 
     // IMPORTANT: This must EXACTLY match what's in your LinkedIn Developer Portal
     // Copy and paste the exact redirect URI from your LinkedIn App's settings
-    redirectUri: 'https://chengheri.github.io/linkedin-post-manager/',
+    redirectUri: 'https://chengheri.github.io/linkedin-post-manager/index.html',
 
     scope: 'r_liteprofile', // Simplified to just basic profile access
     apiBaseUrl: 'https://api.linkedin.com/v2',
