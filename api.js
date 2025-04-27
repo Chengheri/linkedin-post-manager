@@ -103,72 +103,116 @@ class LinkedInAPI {
             const token = this.auth.getToken();
 
             if (!token) {
-                throw new Error('No authentication token available');
+                console.error('No authentication token available for LinkedIn API');
+                throw new Error('Not authenticated');
             }
 
             console.log('Using token:', token.substring(0, 10) + '...');
+            console.log('API Base URL:', this.apiBase);
 
             // Try to get user profile first to get the user ID
             const profileEndpoint = '/me';
             console.log('Fetching user profile from:', this.apiBase + profileEndpoint);
 
-            const profileResponse = await fetch(`${this.apiBase}${profileEndpoint}`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
+            try {
+                console.log('Making profile request with headers:', {
+                    'Authorization': `Bearer ${token.substring(0, 10)}...`,
                     'Content-Type': 'application/json',
+                });
+
+                const profileResponse = await fetch(`${this.apiBase}${profileEndpoint}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                console.log('Profile response status:', profileResponse.status);
+                console.log('Profile response headers:', [...profileResponse.headers.entries()]);
+
+                if (!profileResponse.ok) {
+                    const errorText = await profileResponse.text();
+                    console.error(`LinkedIn API profile error (${profileResponse.status}):`, errorText);
+                    console.warn('Using simulated data instead due to profile API error');
+                    return this.simulatePostsResponse();
                 }
-            });
 
-            if (!profileResponse.ok) {
-                const errorText = await profileResponse.text();
-                console.error(`LinkedIn API profile error (${profileResponse.status}):`, errorText);
-                console.log('Using simulated data instead');
-                return this.simulatePostsResponse();
-            }
+                const profileData = await profileResponse.json();
+                console.log('Profile data received:', JSON.stringify(profileData, null, 2));
 
-            const profileData = await profileResponse.json();
-            console.log('Profile data received:', profileData);
-
-            // Get the user ID from the profile
-            const userId = profileData.id;
-            if (!userId) {
-                console.error('Could not find user ID in profile response');
-                return this.simulatePostsResponse();
-            }
-
-            // Now try to fetch the posts
-            const postsEndpoint = `/shares?q=owners&owners=${encodeURIComponent(`urn:li:person:${userId}`)}`;
-            console.log('Fetching posts from:', this.apiBase + postsEndpoint);
-
-            const postsResponse = await fetch(`${this.apiBase}${postsEndpoint}`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
+                // Get the user ID from the profile
+                const userId = profileData.id;
+                if (!userId) {
+                    console.error('Could not find user ID in profile response');
+                    console.warn('Profile data lacks ID, using simulated data instead');
+                    return this.simulatePostsResponse();
                 }
-            });
 
-            if (!postsResponse.ok) {
-                const errorText = await postsResponse.text();
-                console.error(`LinkedIn API posts error (${postsResponse.status}):`, errorText);
-                console.log('Using simulated data instead');
+                console.log('Found user ID:', userId);
+
+                // Now try to fetch the posts
+                // Try multiple endpoints to see what works
+                const endpoints = [
+                    `/shares?q=owners&owners=${encodeURIComponent(`urn:li:person:${userId}`)}`,
+                    `/ugcPosts?q=authors&authors=List(${encodeURIComponent(`urn:li:person:${userId}`)})`,
+                    `/activityFeeds?q=owners&owners=${encodeURIComponent(`urn:li:person:${userId}`)}`
+                ];
+
+                for (let i = 0; i < endpoints.length; i++) {
+                    const endpoint = endpoints[i];
+                    console.log(`Trying endpoint ${i+1}/${endpoints.length}: ${this.apiBase}${endpoint}`);
+
+                    try {
+                        const postsResponse = await fetch(`${this.apiBase}${endpoint}`, {
+                            method: 'GET',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json',
+                            }
+                        });
+
+                        console.log(`Endpoint ${i+1} response status:`, postsResponse.status);
+
+                        if (postsResponse.ok) {
+                            const postsData = await postsResponse.json();
+                            console.log(`Endpoint ${i+1} data:`, JSON.stringify(postsData, null, 2));
+
+                            // See if we got valid posts
+                            if (postsData && postsData.elements && Array.isArray(postsData.elements) && postsData.elements.length > 0) {
+                                console.log(`Found ${postsData.elements.length} posts with endpoint ${i+1}`);
+
+                                // Transform the LinkedIn API response to our app's format
+                                const formattedPosts = this.formatLinkedInPosts(postsData);
+                                console.log('Formatted posts:', formattedPosts);
+
+                                return formattedPosts.length > 0 ? formattedPosts : this.simulatePostsResponse();
+                            } else {
+                                console.log(`No posts found with endpoint ${i+1}, trying next endpoint`);
+                            }
+                        } else {
+                            const errorText = await postsResponse.text();
+                            console.error(`LinkedIn API endpoint ${i+1} error (${postsResponse.status}):`, errorText);
+                            console.log('Trying next endpoint');
+                        }
+                    } catch (endpointError) {
+                        console.error(`Error with endpoint ${i+1}:`, endpointError.message);
+                        console.log('Trying next endpoint');
+                    }
+                }
+
+                console.warn('All endpoints failed, using simulated data');
+                return this.simulatePostsResponse();
+
+            } catch (profileError) {
+                console.error('Error fetching LinkedIn profile:', profileError.message);
+                console.warn('Using simulated data due to profile fetch error');
                 return this.simulatePostsResponse();
             }
-
-            const postsData = await postsResponse.json();
-            console.log('Posts data received:', postsData);
-
-            // Transform the LinkedIn API response to our app's format
-            const formattedPosts = this.formatLinkedInPosts(postsData);
-            console.log('Formatted posts:', formattedPosts);
-
-            return formattedPosts.length > 0 ? formattedPosts : this.simulatePostsResponse();
 
         } catch (error) {
-            console.log('Error fetching posts:', error.message);
-            // In a real implementation, this would use LinkedIn's UGC API
-            // For demo purposes, we'll simulate the response
+            console.error('Error fetching posts:', error.message);
+            console.warn('Using simulated posts due to general error');
             return this.simulatePostsResponse();
         }
     }
