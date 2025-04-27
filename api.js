@@ -129,36 +129,51 @@ class LinkedInAPI {
 
             // Try the endpoints through our API request method which handles proxy
             try {
-                // Try to get existing authorization
-                console.log('Trying DMA memberAuthorizations endpoint (FINDER)');
-                const authPath = '/rest/dma/memberAuthorizations?action=findAll';
-                const authData = await this.apiRequest(authPath);
-                console.log('Member authorizations data received');
-                return this.processDataPortabilityResponse(authData, 'authorizations');
-            } catch (authError) {
-                console.error('Error with memberAuthorizations endpoint:', authError.message);
+                // Try using Data Export API endpoint (v2 format)
+                console.log('Trying Data Export API endpoint');
+                const exportData = await this.apiRequest('/v2/dataExport', 'POST', {
+                    deviceFormFactor: "DESKTOP",
+                    locale: {
+                        country: "US",
+                        language: "en"
+                    }
+                });
+                console.log('Data export response received');
+                return this.processDataPortabilityResponse(exportData, 'dataExport');
+            } catch (exportError) {
+                console.error('Error with data export endpoint:', exportError.message);
 
                 try {
-                    // Try member change logs
-                    console.log('Trying DMA memberChangeLogs endpoint (FINDER)');
-                    const logsPath = '/rest/dma/memberChangeLogs?action=findAll';
-                    const logsData = await this.apiRequest(logsPath);
-                    console.log('Member change logs data received');
-                    return this.processDataPortabilityResponse(logsData, 'changeLogs');
-                } catch (logsError) {
-                    console.error('Error with memberChangeLogs endpoint:', logsError.message);
+                    // Try the dma/v2 version instead
+                    console.log('Trying dma/v2/memberAuthorizations endpoint with POST');
+                    const authData = await this.apiRequest('/dma/v2/memberAuthorizations', 'POST', {
+                        action: "findAll"
+                    });
+                    console.log('Member authorizations data received');
+                    return this.processDataPortabilityResponse(authData, 'authorizations');
+                } catch (authError) {
+                    console.error('Error with dma/v2/memberAuthorizations endpoint:', authError.message);
 
                     try {
-                        // Try the snapshot data
-                        console.log('Trying DMA memberSnapshotData endpoint (FINDER)');
-                        const snapshotPath = '/rest/dma/memberSnapshotData?action=findAll';
-                        const snapshotData = await this.apiRequest(snapshotPath);
-                        console.log('Member snapshot data received');
-                        return this.processDataPortabilityResponse(snapshotData, 'snapshot');
-                    } catch (snapshotError) {
-                        console.error('Error with memberSnapshotData endpoint:', snapshotError.message);
-                        console.warn('All endpoints failed, using simulated data');
-                        return this.simulatePostsResponse();
+                        // Try another approach - using a direct request to archived content
+                        console.log('Trying /adPersonalization/settings endpoint');
+                        const settingsData = await this.apiRequest('/adPersonalization/settings');
+                        console.log('Ad personalization settings received');
+                        return this.processDataPortabilityResponse(settingsData, 'settings');
+                    } catch (settingsError) {
+                        console.error('Error with settings endpoint:', settingsError.message);
+
+                        try {
+                            // Last attempt - try /clientAudiences endpoint which is often available
+                            console.log('Trying /clientAudiences endpoint');
+                            const audiencesData = await this.apiRequest('/clientAudiences');
+                            console.log('Client audiences data received');
+                            return this.processDataPortabilityResponse(audiencesData, 'audiences');
+                        } catch (audiencesError) {
+                            console.error('Error with audiences endpoint:', audiencesError.message);
+                            console.warn('All endpoints failed, using simulated data');
+                            return this.simulatePostsResponse();
+                        }
                     }
                 }
             }
@@ -172,7 +187,7 @@ class LinkedInAPI {
     // Process data from the Data Portability API
     processDataPortabilityResponse(data, responseType) {
         try {
-            console.log(`Processing ${responseType} data from Data Portability API`);
+            console.log(`Processing ${responseType} data from API:`, JSON.stringify(data, null, 2));
 
             // Each response type has a different structure
             let formattedPosts = [];
@@ -198,21 +213,66 @@ class LinkedInAPI {
                 if (data.elements && Array.isArray(data.elements)) {
                     formattedPosts = data.elements.map(item => this.formatDataPortabilityPost(item, 'changeLogs'));
                 }
+            } else if (responseType === 'dataExport') {
+                // Handle data export response
+                if (data.elements && Array.isArray(data.elements)) {
+                    formattedPosts = data.elements.map(item => this.formatDataPortabilityPost(item, 'dataExport'));
+                } else if (data.archives && Array.isArray(data.archives)) {
+                    formattedPosts = data.archives.map(item => this.formatDataPortabilityPost(item, 'dataExport'));
+                } else if (data.data && Array.isArray(data.data)) {
+                    formattedPosts = data.data.map(item => this.formatDataPortabilityPost(item, 'dataExport'));
+                }
+            } else if (responseType === 'settings' || responseType === 'audiences') {
+                // Create a single post with the settings data
+                formattedPosts = [this.formatDataPortabilityPost(data, responseType)];
             }
 
-            console.log(`Formatted ${formattedPosts.length} posts from Data Portability API`);
+            console.log(`Formatted ${formattedPosts.length} posts from API data`);
 
             if (formattedPosts.length === 0) {
-                console.warn('No posts could be extracted from Data Portability API, using simulated data');
+                // Try to extract any array in the data as posts
+                const extractedArray = this.findArrayInObject(data);
+                if (extractedArray && extractedArray.length > 0) {
+                    console.log(`Found array with ${extractedArray.length} items in data`);
+                    formattedPosts = extractedArray.map(item => this.formatDataPortabilityPost(item, 'generic'));
+                }
+            }
+
+            if (formattedPosts.length === 0) {
+                console.warn('No posts could be extracted from API data, using simulated data');
                 return this.simulatePostsResponse();
             }
 
             return formattedPosts;
 
         } catch (error) {
-            console.error('Error processing Data Portability API response:', error.message);
+            console.error('Error processing API response:', error.message);
             return this.simulatePostsResponse();
         }
+    }
+
+    // Find any array in a complex object that might contain post-like data
+    findArrayInObject(obj, maxDepth = 3, currentDepth = 0) {
+        if (currentDepth > maxDepth) return null;
+
+        if (Array.isArray(obj) && obj.length > 0) {
+            // Check if this array contains objects with typical post properties
+            if (obj[0] && (
+                obj[0].title || obj[0].content || obj[0].text ||
+                obj[0].name || obj[0].description || obj[0].id
+            )) {
+                return obj;
+            }
+        }
+
+        if (obj !== null && typeof obj === 'object') {
+            for (const key in obj) {
+                const result = this.findArrayInObject(obj[key], maxDepth, currentDepth + 1);
+                if (result) return result;
+            }
+        }
+
+        return null;
     }
 
     // Format a post from Data Portability API
@@ -247,7 +307,6 @@ class LinkedInAPI {
                 if (item.numShares) engagement.shares = item.numShares;
             } else if (dataType === 'authorizations' || dataType === 'changeLogs') {
                 // Handle authorizations/logs format - these might not have post content
-                // but we can at least show some data
                 if (item.name) title = item.name;
                 if (item.type) title = `${item.type} Record`;
                 if (item.description) content = item.description;
@@ -258,6 +317,68 @@ class LinkedInAPI {
                 if (item.timestamp) createdAt = new Date(item.timestamp).toISOString();
 
                 if (item.id) id = `linkedin_${item.id}`;
+            } else if (dataType === 'dataExport') {
+                // Handle data export format
+                if (item.name) title = item.name;
+                if (item.description) content = item.description;
+                if (item.status) title = `Data Export: ${item.status}`;
+                if (item.url) content = `Download URL: ${item.url}\n\n${content}`;
+                if (item.size) content += `\nSize: ${item.size}`;
+                if (item.requestTime) createdAt = new Date(item.requestTime).toISOString();
+                if (item.expirationTime) content += `\nExpires: ${new Date(item.expirationTime).toLocaleString()}`;
+                if (item.id) id = `linkedin_export_${item.id}`;
+            } else if (dataType === 'settings') {
+                // Handle settings format
+                title = 'LinkedIn Settings';
+                content = 'Your LinkedIn profile settings and preferences:';
+
+                // Format the settings object into readable content
+                Object.entries(item).forEach(([key, value]) => {
+                    if (key !== 'id' && key !== 'timestamp') {
+                        content += `\n\n${key}: ${JSON.stringify(value, null, 2)}`;
+                    }
+                });
+
+                if (item.id) id = `linkedin_settings_${item.id}`;
+                if (item.timestamp) createdAt = new Date(item.timestamp).toISOString();
+            } else if (dataType === 'audiences') {
+                // Handle audiences format
+                title = 'LinkedIn Audience Data';
+                content = 'Information about your LinkedIn audience segments:';
+
+                // Format the audience object into readable content
+                Object.entries(item).forEach(([key, value]) => {
+                    if (key !== 'id' && key !== 'timestamp') {
+                        content += `\n\n${key}: ${JSON.stringify(value, null, 2)}`;
+                    }
+                });
+
+                if (item.id) id = `linkedin_audience_${item.id}`;
+                if (item.lastModified) createdAt = new Date(item.lastModified).toISOString();
+            } else if (dataType === 'generic') {
+                // Handle generic data format - try to extract anything useful
+                if (item.title || item.name) title = item.title || item.name;
+                if (item.content || item.description || item.text) {
+                    content = item.content || item.description || item.text;
+                } else {
+                    // Format the entire object into readable content
+                    content = JSON.stringify(item, null, 2);
+                }
+
+                // Try to find date fields
+                const dateFields = ['createdAt', 'created', 'timestamp', 'date', 'lastModified'];
+                for (const field of dateFields) {
+                    if (item[field]) {
+                        try {
+                            createdAt = new Date(item[field]).toISOString();
+                            break;
+                        } catch (e) {
+                            // Not a valid date, continue checking
+                        }
+                    }
+                }
+
+                if (item.id) id = `linkedin_data_${item.id}`;
             }
 
             // Ensure title is not too long
